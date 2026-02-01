@@ -5,46 +5,131 @@ description: Secure secret handoff from human to AI. Use when you need sensitive
 
 # Confidant - Secure Secret Handoff
 
-When you need sensitive information (API keys, passwords, tokens, credentials), **never ask the user to paste it in chat**. Use Confidant to create a secure handoff.
+Confidant enables secure secret sharing without exposing sensitive data in chat logs. It supports multiple flows depending on who needs to send and receive secrets.
 
-## How to Use
+**Key principle:** Whoever needs to RECEIVE the secret runs `serve-request`. Whoever needs to SEND uses `fill` (or the browser form).
 
-Run this command:
+## Flows
+
+### 1. User-to-Agent (User sends secret to AI)
+
+**When to use:** You need a secret from the user (API key, password, token).
+
+**How it works:**
+
+1. You (the Agent) run `serve-request` to create a URL
+2. You share the URL with the user
+3. User opens the URL in their browser and submits the secret
+4. You receive the secret in your terminal
+
+**Your command:**
 
 ```bash
 npx @aiconnect/confidant serve-request --label "<description>"
 ```
 
-Replace `<description>` with what you're requesting (e.g., "OpenAI API Key", "Database Password").
+**Example conversation:**
 
-Example:
+> **AI:** I need your API key to continue. Let me create a secure link...
+>
+> *(AI executes: `npx @aiconnect/confidant serve-request --label "API Key"`)*
+>
+> **AI:** Open this link in your browser and enter your API key:
+> `http://localhost:3000/requests/abc123`
+>
+> *(User opens URL in browser, submits the secret)*
+>
+> **AI:** Got your API key securely!
+
+---
+
+### 2. Agent-to-User (AI sends secret to User)
+
+**When to use:** You need to securely deliver a secret to the user (generated password, API key, credential).
+
+**How it works:**
+
+1. User runs `serve-request` to create a URL (they will receive)
+2. User shares the URL with you
+3. You execute `fill` to send the secret
+4. User sees the secret appear in their terminal
+
+**Your command:**
+
 ```bash
-npx @aiconnect/confidant serve-request --label "GitHub Personal Access Token"
+npx @aiconnect/confidant fill "<url>" --secret "<value>"
 ```
 
-## What Happens
+**Example conversation:**
 
-1. Command starts a server and creates a secure request
-2. A URL is displayed (localhost + local network IP if available)
-3. Share the URL with the user
-4. User opens URL in browser and submits the secret
-5. Secret is displayed in terminal output
-6. Server shuts down, secret self-destructs
+> **AI:** I generated your new password. To receive it securely, run:
+>
+> ```
+> npx @aiconnect/confidant serve-request --label "New Password"
+> ```
+>
+> Send me the URL that appears.
+>
+> **User:** `http://192.168.1.100:3000/requests/abc123`
+>
+> *(AI executes: `npx @aiconnect/confidant fill "http://..." --secret "...")*
+>
+> **AI:** Done! The password appeared in your terminal.
 
-## Output Options
+---
+
+### 3. Agent-to-Agent (Automated secret sharing)
+
+**When to use:** Automated credential distribution between systems/agents.
+
+**How it works:**
+
+1. Agent A (receiver) runs: `npx @aiconnect/confidant serve-request --label "DB Credentials"`
+2. Agent A shares the URL with Agent B (via API, orchestrator, etc.)
+3. Agent B (sender) submits: `npx @aiconnect/confidant fill "<url>" --secret "<value>"`
+4. Agent A receives the secret
+
+**Secure input (avoid shell history):**
+
+```bash
+echo "$SECRET" | npx @aiconnect/confidant fill "<url>" --secret -
+```
+
+---
+
+## Command Reference
+
+### Create request and wait for secret
+
+```bash
+npx @aiconnect/confidant serve-request --label "<description>"
+```
+
+### Submit secret to existing request
+
+```bash
+npx @aiconnect/confidant fill "<url>" --secret "<value>"
+```
+
+### Output options
 
 - `--quiet` — Minimal output (just URLs and secret)
-- `--json` — JSON output for parsing
+- `--json` — JSON output for parsing/automation
 
-## After Receiving the Secret
+---
 
-- Confirm to the user: "Recebi o secret, obrigado!" or similar
-- **NEVER reveal the secret value in chat** — not even partially
-- Use the secret silently for the intended task
+## Important Rules
 
-## Important
-
-- The secret **never passes through chat** — direct browser-to-server
-- Auto-expires after 24h if not used
+- **NEVER ask users to paste secrets in chat** — always use Confidant
+- **NEVER reveal received secrets in chat** — not even partially
+- Secrets auto-expire after 24h if not used
 - One-time read, then deleted
 - If user is remote, they may need tunneling (ngrok, Tailscale, etc.)
+
+---
+
+## After Receiving/Sending
+
+- Confirm completion: "Got the secret!" or "Sent! Check your terminal."
+- Use the secret silently for the intended task
+- Never echo or log the secret value
