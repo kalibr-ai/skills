@@ -1,0 +1,11 @@
+{
+  "owner": "ashrf-in",
+  "slug": "odoo-openclaw-skill",
+  "displayName": "Odoo",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769962511442,
+    "commit": null
+  },
+  "history": []
+}
