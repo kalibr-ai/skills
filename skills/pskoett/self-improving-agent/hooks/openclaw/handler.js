@@ -5,9 +5,8 @@
  * Fires on agent:bootstrap event before workspace files are injected.
  */
 
-import type { HookHandler } from 'openclaw/hooks';
-
-const REMINDER_CONTENT = `## Self-Improvement Reminder
+const REMINDER_CONTENT = `
+## Self-Improvement Reminder
 
 After completing tasks, evaluate if any learnings should be captured:
 
@@ -23,9 +22,10 @@ After completing tasks, evaluate if any learnings should be captured:
 - Workflow improvements → \`AGENTS.md\`
 - Tool gotchas → \`TOOLS.md\`
 
-Keep entries simple: date, title, what happened, what to do differently.`;
+Keep entries simple: date, title, what happened, what to do differently.
+`.trim();
 
-const handler: HookHandler = async (event) => {
+const handler = async (event) => {
   // Safety checks for event structure
   if (!event || typeof event !== 'object') {
     return;
@@ -41,13 +41,6 @@ const handler: HookHandler = async (event) => {
     return;
   }
 
-  // Skip sub-agent sessions to avoid bootstrap issues
-  // Sub-agents have sessionKey patterns like "agent:main:subagent:..."
-  const sessionKey = event.sessionKey || '';
-  if (sessionKey.includes(':subagent:')) {
-    return;
-  }
-
   // Inject the reminder as a virtual bootstrap file
   // Check that bootstrapFiles is an array before pushing
   if (Array.isArray(event.context.bootstrapFiles)) {
@@ -59,4 +52,5 @@ const handler: HookHandler = async (event) => {
   }
 };
 
-export default handler;
+module.exports = handler;
+module.exports.default = handler;
