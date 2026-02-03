@@ -1,0 +1,11 @@
+{
+  "owner": "cgnl",
+  "slug": "glm-coding-agent",
+  "displayName": "Glm Coding Agent",
+  "latest": {
+    "version": "2.0.0",
+    "publishedAt": 1770071627021,
+    "commit": null
+  },
+  "history": []
+}
