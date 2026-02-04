@@ -3,9 +3,15 @@
   "slug": "searxng-search-2",
   "displayName": "Searxng Search",
   "latest": {
-    "version": "0.1.0",
-    "publishedAt": 1770137758529,
-    "commit": "https://github.com/clawdbot/skills/commit/9c3f666270096ab5662622fe38d27e67b7528a0a"
+    "version": "0.1.1",
+    "publishedAt": 1770142279006,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1770137758529,
+      "commit": "https://github.com/clawdbot/skills/commit/9c3f666270096ab5662622fe38d27e67b7528a0a"
+    }
+  ]
 }
