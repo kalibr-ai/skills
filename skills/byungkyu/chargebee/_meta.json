@@ -3,11 +3,16 @@
   "slug": "chargebee",
   "displayName": "Chargebee",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1770117909838,
-    "commit": "https://github.com/clawdbot/skills/commit/197218884d2c4371a6a8c76d0b6560d3a8ed5769"
+    "version": "1.0.2",
+    "publishedAt": 1770255378660,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1770117909838,
+      "commit": "https://github.com/clawdbot/skills/commit/197218884d2c4371a6a8c76d0b6560d3a8ed5769"
+    },
     {
       "version": "1.0.0",
       "publishedAt": 1770020111858,
