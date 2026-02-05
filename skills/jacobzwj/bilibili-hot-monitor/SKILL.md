@@ -25,36 +25,24 @@ test -f {baseDir}/bilibili-monitor.json && echo "CONFIG_EXISTS" || echo "CONFIG_
 **第1步：询问 B站 Cookies**
 ```
 请提供 B站 Cookies：
-（获取方法：登录B站 → F12 → Application → Cookies → 全选复制）
+（获取方法：登录B站首页 → F12 → Network选项卡 → 刷新页面 → 点击 www.bilibili.com 请求 → 找到 Request Headers 中的 Cookie 字段 → 复制整个值）
 ```
 等待用户回复，保存为变量 `COOKIES`
 
-**第2步：询问 B站 API 代理（新增）**
+**第2步：询问 AI 服务**
 ```
-是否需要配置 B站 API 代理？
-（仅海外部署需要，中国大陆用户选2跳过）
-1 = 是（需要填写代理地址）
-2 = 否
-请回复数字：
-```
-- 如果选 1 → 询问代理地址：
-```
-请提供 B站 API 代理地址：
-（格式：http://你的服务器IP:端口）
-```
-保存为 `PROXY_API`
-- 如果选 2 → `PROXY_API` 留空
+AI 功能说明：
+- 需要 OpenRouter API Key
+- 用于生成视频内容总结（基于字幕）和 AI 点评
 
-**第3步：询问 AI 点评服务**
-```
-是否需要 AI 点评功能？（使用 OpenRouter）
-1 = 是（需要 OpenRouter API Key）
-2 = 否
+是否启用 AI 功能？
+1 = 是（推荐，需要 OpenRouter API Key）
+2 = 否（将无法生成视频总结和点评）
 请回复数字：
 ```
 等待用户回复
 
-**第4步：如果选了 1（使用 AI 点评）**
+**第3步：如果选了 1（启用 AI）**
 ```
 请选择模型：
 1 = Gemini（推荐，便宜快速）
@@ -65,38 +53,37 @@ test -f {baseDir}/bilibili-monitor.json && echo "CONFIG_EXISTS" || echo "CONFIG_
 等待用户回复，然后：
 ```
 请提供 OpenRouter API Key：
-（获取：https://openrouter.ai/keys）
+获取地址：https://openrouter.ai/keys
 ```
 保存为 `OPENROUTER_KEY` 和 `MODEL`
 
-**第5步：询问发件邮箱**
+**第4步：询问发件邮箱**
 ```
 请提供 Gmail 发件邮箱：
 ```
 等待用户回复，保存为 `SMTP_EMAIL`
 
-**第6步：询问应用密码**
+**第5步：询问应用密码**
 ```
 请提供 Gmail 应用密码（16位）：
-（获取：https://myaccount.google.com/apppasswords）
+获取地址：https://myaccount.google.com/apppasswords
 ```
 保存为 `SMTP_PASSWORD`
 
-**第7步：询问收件人**
+**第6步：询问收件人**
 ```
 请提供收件人邮箱（多个用逗号分隔）：
 ```
 保存为 `RECIPIENTS`
 
-**第8步：生成配置文件**
+**第7步：生成配置文件**
 
 根据收集的信息创建配置文件：
 ```bash
 cat > {baseDir}/bilibili-monitor.json << 'EOF'
 {
   "bilibili": {
-    "cookies": "COOKIES值",
-    "proxy_api": "PROXY_API值或空"
+    "cookies": "COOKIES值"
   },
   "ai": {
     "openrouter_key": "OPENROUTER_KEY值或空",
@@ -143,7 +130,8 @@ python3 {baseDir}/send_email.py --config {baseDir}/bilibili-monitor.json --body-
 
 ## ⚠️ 重要提示
 
-**B站 AI 总结 API 地区限制：**
-- 该 API 仅限中国大陆 IP 访问
-- 海外部署需要配置 `proxy_api` 指向中国服务器的代理
-- 中国大陆用户无需配置代理，直接使用即可
+**AI 视频总结说明：**
+- 视频总结基于字幕生成，需要视频有字幕（CC字幕或AI字幕）
+- 部分视频可能没有字幕，这些视频将无法生成总结
+- 推荐启用 AI 功能以获得完整的视频分析体验
+- 需要 OpenRouter API Key（支持 Gemini、Claude、GPT、DeepSeek 等模型）

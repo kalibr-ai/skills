@@ -9,7 +9,7 @@ venv/
 .venv/
 
 # 生成的报告文件（保留示例）
-report_*.md
+report*.md
 !example_report.md
 
 # 包含敏感信息的文件
@@ -17,6 +17,12 @@ report_*.md
 *.env
 config.json
 bilibili-monitor.json
+
+# 测试文件
+test_*.py
+
+# Claude Code 缓存
+.claude/
 
 # IDE
 .idea/

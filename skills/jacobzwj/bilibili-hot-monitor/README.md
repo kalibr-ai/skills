@@ -1,11 +1,37 @@
 # B站热门视频监控 Skill
 
-自动获取B站热门视频，调用官方AI总结API，生成包含数据分析的日报，支持邮件发送。
+自动获取B站热门视频，使用字幕+LLM生成AI总结，生成包含数据分析的日报，支持邮件发送。
+
+## 📦 版本历史
+
+### v1.0.11 (2025-02-05)
+
+**重大更新：改用字幕+LLM方案替代B站官方AI总结API**
+
+- ✨ **新功能**
+  - 使用视频字幕 + OpenRouter LLM 生成 AI 视频总结
+  - 支持多种 LLM 模型：Claude、Gemini、GPT、DeepSeek
+  - 实时进度条显示，用户可看到处理进度
+  - 预估耗时提示
+
+- 🔧 **优化**
+  - 禁用所有模型的 thinking/reasoning 模式，避免输出被截断
+  - 添加网络重试机制（最多3次），提高稳定性
+  - 优化 JSON 解析，增加 fallback 提取逻辑
+  - 改进 SKILL.md 中的 Cookie 获取说明（使用 Network 选项卡方法）
+
+- 🐛 **修复**
+  - 修复字幕获取兼容性问题
+  - 修复 URL 链接被括号破坏的问题
+
+### v1.0.10
+
+- 初始版本，使用 B站官方 AI 总结 API
 
 ## ✨ 功能特点
 
 - 📊 获取B站热门视频Top 10/20/30
-- 🤖 调用B站官方AI视频总结API
+- 🤖 字幕提取 + LLM 生成 AI 视频总结
 - 📝 自动生成结构化Markdown报告
 - 💡 支持 OpenRouter AI 智能点评（Claude/Gemini/GPT/DeepSeek）
 - 📧 HTML邮件发送（支持多收件人）
@@ -83,7 +109,7 @@ python send_email.py --config bilibili-monitor.json --body-file report.md --html
 ├── 基本信息（UP主、时长、发布时间）
 ├── 📊 数据统计
 ├── 📝 视频简介
-├── 🤖 B站官方AI总结 + 内容大纲
+├── 🤖 AI视频总结 + 内容大纲（LLM生成）
 ├── 💡 AI点评
 ├── 📈 运营爆款分析
 └── 🔗 视频链接
@@ -103,10 +129,9 @@ python send_email.py --config bilibili-monitor.json --body-file report.md --html
 
 ```
 bilibili-monitor/
-├── SKILL.md                    # AI Skill说明文件
+├── SKILL.md                    # AI Skill 说明文件
 ├── README.md                   # 本文件
-├── requirements.txt            # Python依赖
-├── bilibili_api.py             # B站API封装
+├── requirements.txt            # Python 依赖
 ├── generate_report.py          # 报告生成脚本
 ├── send_email.py               # 邮件发送脚本
 ├── bilibili-monitor.example.json  # 配置文件示例
@@ -130,37 +155,11 @@ bilibili-monitor/
 1. 访问 https://myaccount.google.com/apppasswords
 2. 生成16位应用密码
 
-## 🌍 海外部署（代理配置）
-
-B站 AI 总结 API **仅限中国大陆 IP 访问**。海外服务器需要配置代理。
-
-### 方案：部署代理服务器
-
-1. 在中国大陆服务器上部署 `bilibili_proxy_server.py`
-2. 在配置文件中设置 `proxy_api`
-
-```json
-{
-  "bilibili": {
-    "cookies": "...",
-    "proxy_api": "http://你的中国服务器IP:5000/bilibili/ai_summary"
-  }
-}
-```
-
-### 代理服务器部署
-
-详见下方【广州服务器部署指南】
-
 ## ⚠️ 注意事项
 
-1. **⚠️ 地区限制**：B站 AI 总结 API 仅限中国大陆 IP
-   - 🇨🇳 中国大陆用户：直接使用，无需配置 `proxy_api`
-   - 🌍 海外用户：配置 `proxy_api` 指向中国服务器
-
-2. **API频率限制**：请求间隔建议 >= 3秒
-3. **Cookie有效期**：SESSDATA约1-3个月，过期需重新获取
-4. **AI总结可用性**：并非所有视频都有官方AI总结
+1. **Cookie有效期**：SESSDATA 约 1-3 个月，过期需重新获取
+2. **API频率限制**：请求间隔建议 >= 1 秒
+3. **字幕可用性**：部分视频可能无字幕，会跳过 AI 总结生成
 
 ## 📄 License
 

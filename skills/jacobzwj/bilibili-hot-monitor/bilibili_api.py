@@ -200,31 +200,103 @@ class BilibiliAPI:
 
         return data["data"]
 
-    def get_video_subtitle(self, bvid: str, cid: int) -> list[dict] | None:
+    def get_video_subtitle(self, bvid: str, aid: int = None, cid: int = None) -> list[dict] | None:
         """
-        获取视频字幕
+        获取视频字幕（使用 wbi/v2 API）
 
         Args:
             bvid: 视频 BV 号
-            cid: 视频 cid
+            aid: 视频 aid（如果不提供，会自动获取）
+            cid: 视频 cid（如果不提供，会自动获取）
 
         Returns:
             字幕列表，如果没有则返回 None
         """
+        # 如果没有提供 aid 或 cid，先获取视频信息
+        if aid is None or cid is None:
+            try:
+                video_info = self.get_video_info(bvid)
+                aid = video_info.get("aid")
+                cid = video_info.get("cid")
+            except Exception:
+                return None
+
+        # 使用 wbi/v2 API（与 bilibili_subtitle.py 一致）
         resp = self.session.get(
-            "https://api.bilibili.com/x/player/v2",
-            params={"bvid": bvid, "cid": cid}
+            "https://api.bilibili.com/x/player/wbi/v2",
+            params={"aid": aid, "cid": cid}
         )
         data = resp.json()
 
         if data["code"] != 0:
             return None
 
-        subtitles = data["data"].get("subtitle", {}).get("subtitles", [])
+        subtitles = data.get("data", {}).get("subtitle", {}).get("subtitles", [])
         if not subtitles:
             return None
 
         return subtitles
+
+    def download_subtitle(self, subtitle_url: str) -> list[dict] | None:
+        """
+        下载字幕内容
+
+        Args:
+            subtitle_url: 字幕文件 URL
+
+        Returns:
+            字幕内容列表，每项包含 from, to, content
+        """
+        # 确保 URL 以 https 开头
+        if subtitle_url.startswith("//"):
+            subtitle_url = "https:" + subtitle_url
+
+        try:
+            resp = self.session.get(subtitle_url)
+            data = resp.json()
+            return data.get("body", [])
+        except Exception as e:
+            print(f"  [WARNING] 下载字幕失败: {e}")
+            return None
+
+    def get_video_subtitle_text(self, bvid: str, aid: int = None, cid: int = None, prefer_lang: str = "zh") -> str | None:
+        """
+        获取视频字幕的纯文本内容
+
+        Args:
+            bvid: 视频 BV 号
+            aid: 视频 aid（可选，不提供会自动获取）
+            cid: 视频 cid（可选，不提供会自动获取）
+            prefer_lang: 优先语言，默认 "zh"（中文）
+
+        Returns:
+            字幕纯文本，如果没有则返回 None
+        """
+        subtitles = self.get_video_subtitle(bvid, aid, cid)
+        if not subtitles:
+            return None
+
+        # 优先选择中文字幕
+        selected_subtitle = None
+        for sub in subtitles:
+            lan = sub.get("lan", "")
+            if prefer_lang in lan or f"ai-{prefer_lang}" in lan:
+                selected_subtitle = sub
+                break
+
+        if not selected_subtitle:
+            selected_subtitle = subtitles[0]
+
+        subtitle_url = selected_subtitle.get("subtitle_url", "")
+        if not subtitle_url:
+            return None
+
+        subtitle_body = self.download_subtitle(subtitle_url)
+        if not subtitle_body:
+            return None
+
+        # 转换为纯文本
+        return "\n".join(item.get("content", "") for item in subtitle_body)
 
 
 def format_duration(seconds: int) -> str:
