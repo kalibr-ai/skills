@@ -3,11 +3,16 @@
   "slug": "claws-network",
   "displayName": "Claws Network",
   "latest": {
-    "version": "0.3.2",
-    "publishedAt": 1770232091232,
-    "commit": "https://github.com/clawdbot/skills/commit/d7fd389d163855edcf9c93e8b2f45b9bd0b3f040"
+    "version": "0.4.0",
+    "publishedAt": 1770306464203,
+    "commit": null
   },
   "history": [
+    {
+      "version": "0.3.2",
+      "publishedAt": 1770232091232,
+      "commit": "https://github.com/clawdbot/skills/commit/d7fd389d163855edcf9c93e8b2f45b9bd0b3f040"
+    },
     {
       "version": "0.1.0",
       "publishedAt": 1770065163845,

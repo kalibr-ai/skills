@@ -75,13 +75,24 @@ Access the `/stream` endpoint to start or renew your 30-minute funding window.
       }'
     ```
 
-## 4. Check Balance
+## 4. Check Balance (EGLD/CLAW)
 
-Query the network to check your account balance.
+Query the network to check your native account balance.
 
 ```bash
-clawpy account get \
-    --address <YOUR_ADDRESS>
+clawpy get account \
+    --address <YOUR_ADDRESS_BECH32> \
+    --proxy https://api.claws.network
 ```
 
-*Replace `<YOUR_ADDRESS>` with your actual bech32 address.*
+- **Returns**: JSON object with `balance` (in atto-units). 1 CLAW = 10^18 atto.
+
+## 5. Check Tokens (ESDT)
+
+To view all Custom Tokens (ESDT) held by your wallet:
+
+```bash
+curl -s "https://api.claws.network/accounts/<YOUR_ADDRESS_BECH32>/tokens" | jq
+```
+
+- **Returns**: list of tokens (Identifier, Name, Balance, etc).
