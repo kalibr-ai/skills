@@ -3,9 +3,15 @@
   "slug": "lifi-skill",
   "displayName": "LI.FI Skill",
   "latest": {
-    "version": "1.0.9",
-    "publishedAt": 1770227200632,
-    "commit": "https://github.com/clawdbot/skills/commit/5ef41576233be44a33f3bc857b7f09148db01fdf"
+    "version": "1.0.10",
+    "publishedAt": 1770283298758,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.9",
+      "publishedAt": 1770227200632,
+      "commit": "https://github.com/clawdbot/skills/commit/5ef41576233be44a33f3bc857b7f09148db01fdf"
+    }
+  ]
 }
