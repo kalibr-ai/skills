@@ -3,11 +3,16 @@
   "slug": "email-to-calendar",
   "displayName": "Email To Calendar",
   "latest": {
-    "version": "1.11.0",
-    "publishedAt": 1770188197383,
-    "commit": "https://github.com/clawdbot/skills/commit/1a543690a704835845e7c5ab5fca55bdcea8eaae"
+    "version": "1.12.0",
+    "publishedAt": 1770234912796,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.11.0",
+      "publishedAt": 1770188197383,
+      "commit": "https://github.com/clawdbot/skills/commit/1a543690a704835845e7c5ab5fca55bdcea8eaae"
+    },
     {
       "version": "1.9.1",
       "publishedAt": 1770089275485,
