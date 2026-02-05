@@ -3,11 +3,16 @@
   "slug": "achurch",
   "displayName": "aChurch.ai",
   "latest": {
-    "version": "1.3.0",
-    "publishedAt": 1770061622688,
-    "commit": "https://github.com/clawdbot/skills/commit/d1d50f6443533df2734eeb2bba42d809b6ceb80f"
+    "version": "1.8.0",
+    "publishedAt": 1770245819896,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.3.0",
+      "publishedAt": 1770061622688,
+      "commit": "https://github.com/clawdbot/skills/commit/d1d50f6443533df2734eeb2bba42d809b6ceb80f"
+    },
     {
       "version": "1.1.0",
       "publishedAt": 1770015345405,
