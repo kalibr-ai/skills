@@ -3,11 +3,16 @@
   "slug": "cellcog",
   "displayName": "cellcog",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1770176223445,
-    "commit": "https://github.com/clawdbot/skills/commit/ba0c7f822e2a1fc21f702e1c08b6d9bc78ff0a4c"
+    "version": "1.0.2",
+    "publishedAt": 1770270502818,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1770176223445,
+      "commit": "https://github.com/clawdbot/skills/commit/ba0c7f822e2a1fc21f702e1c08b6d9bc78ff0a4c"
+    },
     {
       "version": "1.0.0",
       "publishedAt": 1770104190626,
