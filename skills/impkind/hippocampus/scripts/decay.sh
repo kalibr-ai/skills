@@ -111,3 +111,6 @@ if [ -x "$SYNC_SCRIPT" ]; then
     echo ""
     WORKSPACE="$WORKSPACE" "$SYNC_SCRIPT"
 fi
+
+# Regenerate brain dashboard
+[ -x "$SKILL_DIR/scripts/generate-dashboard.sh" ] && "$SKILL_DIR/scripts/generate-dashboard.sh" 2>/dev/null || true

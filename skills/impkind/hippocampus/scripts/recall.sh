@@ -1,9 +1,11 @@
 #!/bin/bash
 # Search hippocampus memories with importance-weighted scoring
 # Combines keyword matching with importance scores
-# Usage: recall.sh <query> [--top N] [--min-score 0.5] [--reinforce]
 #
-# --reinforce: Update lastAccessed for returned memories
+# Usage: recall.sh <query> [--top N] [--min-score 0.5]
+#
+# Note: Reinforcement happens automatically during encoding cron
+#       when similar topics come up in conversation.
 #
 # Environment:
 #   WORKSPACE - OpenClaw workspace directory (default: ~/.openclaw/workspace)
@@ -16,7 +18,6 @@ INDEX="$WORKSPACE/memory/index.json"
 QUERY="$1"
 TOP=5
 MIN_SCORE=0.3
-REINFORCE=false
 
 # Parse args
 shift || true
@@ -24,18 +25,17 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --top) TOP="$2"; shift 2 ;;
         --min-score) MIN_SCORE="$2"; shift 2 ;;
-        --reinforce) REINFORCE=true; shift ;;
         *) shift ;;
     esac
 done
 
 if [ -z "$QUERY" ]; then
-    echo "Usage: recall.sh <query> [--top N] [--min-score 0.5] [--reinforce]"
+    echo "Usage: recall.sh <query> [--top N] [--min-score 0.5]"
     echo ""
     echo "Examples:"
-    echo "  recall.sh 'the user preferences'"
-    echo "  recall.sh 'visa work' --top 10"
-    echo "  recall.sh 'trust' --reinforce"
+    echo "  recall.sh 'user preferences'"
+    echo "  recall.sh 'project deadline' --top 10"
+    echo "  recall.sh 'project' --min-score 0.5"
     exit 1
 fi
 
@@ -44,28 +44,17 @@ if [ ! -f "$INDEX" ]; then
     exit 1
 fi
 
-REINFORCE_VAL="False"
-if [ "$REINFORCE" = "true" ]; then
-    REINFORCE_VAL="True"
-fi
-
 python3 << PYTHON
 import json
-import os
 import re
-from datetime import datetime, date
 
 INDEX_PATH = "$INDEX"
 QUERY = "$QUERY".lower()
 TOP = $TOP
 MIN_SCORE = $MIN_SCORE
-REINFORCE = $REINFORCE_VAL
-TODAY = str(date.today())
 
-# Simple keyword matching (could be replaced with embeddings later)
 def keyword_score(mem, query_terms):
     """Calculate keyword match score (0-1)"""
-    # Support both 'content' and 'text' fields
     text = mem.get('content', mem.get('text', ''))
     searchable = (
         text.lower() + ' ' +
@@ -89,7 +78,6 @@ for mem in data.get('memories', []):
     importance = mem['importance']
     
     # Combined score: 40% keyword match + 60% importance
-    # (importance-heavy because we trust the scoring)
     combined = (0.4 * kw_score) + (0.6 * importance)
     
     if kw_score > 0:  # Only include if there's some match
@@ -114,24 +102,9 @@ else:
     print(f"   (showing top {len(results)}, min_score={MIN_SCORE})")
     print("")
     
-    reinforced_ids = []
     for i, r in enumerate(results, 1):
         print(f"{i}. [{r['domain']}/{r['category']}] (score: {r['combined']:.2f}, imp: {r['importance']:.2f})")
         print(f"   {r['content']}")
         print(f"   ID: {r['id']}")
         print("")
-        reinforced_ids.append(r['id'])
-    
-    # Reinforce if requested
-    if REINFORCE and reinforced_ids:
-        for mem in data.get('memories', []):
-            if mem['id'] in reinforced_ids:
-                mem['lastAccessed'] = TODAY
-                mem['timesReinforced'] = mem.get('timesReinforced', 0) + 1
-        
-        data['lastUpdated'] = datetime.now().isoformat()
-        with open(INDEX_PATH, 'w') as f:
-            json.dump(data, f, indent=2)
-        
-        print(f"📌 Reinforced {len(reinforced_ids)} memories (updated lastAccessed)")
 PYTHON
