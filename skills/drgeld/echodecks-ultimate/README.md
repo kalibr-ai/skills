@@ -1,16 +1,28 @@
 # Ultimate Flashcards and Podcast Tutor
 
-Integrates with EchoDecks for flashcard management, study sessions, and AI generation.
+**Turn your AI Agent into a Study Partner.**
 
-## Features
-- **Flashcard Management:** List decks and review due cards.
-- **Spaced Repetition:** Submit reviews (Again, Hard, Good, Easy).
-- **AI Generation:** Generate flashcards from topics or raw text.
-- **Audio Podcasts:** Turn your decks into AI-generated podcast summaries or conversations.
-- **Stats:** Track your learning progress.
+This skill connects your agent to [EchoDecks](https://echodecks.app), allowing it to create flashcards, quiz you with spaced repetition, and generate audio podcasts from your study materials.
 
-## Configuration
-Requires `ECHODECKS_API_KEY` in your environment.
+## 🚀 Why install this?
+- **Study with your Agent:** "Quiz me on my Cardiology deck."
+- **Generate Content:** "Create a deck about 'Machine Learning' and add 10 cards."
+- **Audio Learning:** "Make a podcast conversation about this deck so I can listen while I drive."
 
-## Usage
-Once installed, the tools `echodecks_get_decks`, `echodecks_get_due_cards`, `echodecks_submit_review`, `echodecks_generate_cards`, and `echodecks_generate_podcast` will be available to your agent.
+## ✨ Features
+- **Flashcard Management:** List decks, view cards.
+- **Spaced Repetition:** Smart review system (Again, Hard, Good, Easy).
+- **AI Generation:** Create cards from any text or topic.
+- **Podcast Mode:** Convert text decks into lifelike audio discussions.
+- **Stats:** Track learning progress.
+
+## 🛠️ Configuration
+Requires an `ECHODECKS_API_KEY` environment variable.
+1. Get your key from [EchoDecks Settings](https://echodecks.app/settings).
+2. Add it to your agent's env.
+
+## 💡 Example Prompts
+Once installed, try these with your agent:
+- *"What cards are due for review today?"*
+- *"Create a new deck called 'German Vocabulary'."*
+- *"Generate a podcast summary for my 'History' deck."*
