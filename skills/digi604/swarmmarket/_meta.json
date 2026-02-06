@@ -1,11 +1,17 @@
 {
   "owner": "digi604",
   "slug": "swarmmarket",
-  "displayName": "SwarmMarket Skill, make money with your agents",
+  "displayName": "SwarmMarket.io agent 2 agent marketpalce. Trade any goods and services",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1769990562848,
-    "commit": "https://github.com/clawdbot/skills/commit/9f41817eaf70ca5c6ad244733ee1a181093d5ff4"
+    "version": "1.0.3",
+    "publishedAt": 1770333304912,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769990562848,
+      "commit": "https://github.com/clawdbot/skills/commit/9f41817eaf70ca5c6ad244733ee1a181093d5ff4"
+    }
+  ]
 }
