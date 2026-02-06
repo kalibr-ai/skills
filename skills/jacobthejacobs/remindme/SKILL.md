@@ -1,12 +1,12 @@
 ---
 name: remindme
-description: ⏰ Fast, deadlock-free Telegram reminders for OpenClaw.
-tags: [telegram, cron, reminders, productivity]
+description: ⏰ Fast Telegram reminders for OpenClaw.
+tags: [telegram, cron, reminders, productivity, schedule]
 metadata:
   {
     "openclaw":
       {
-        "summary": "⏰ One-tap, deadlock-free Telegram reminders for OpenClaw.",
+        "summary": "🚀 **Global Reminders Pro:** Ultra-robust multilingual scheduling with Neural-Bridge parsing. Supports 12+ locales, holidays, and verbal shorthand with 100% logic accuracy.",
         "emoji": "⏰"
       }
   }
@@ -18,13 +18,15 @@ command_template: "node --import tsx skills/remindme/src/index.ts {args}"
 
 # ⏰ Remind Me
 
-The fastest way to schedule Telegram reminders. Precise, reliable, and deadlock-free.
+The fastest way to schedule Telegram reminders. Precise, reliable.
 
 ## 🚀 Quick Usage
 
-- `/remindme call Mom in 5m`
-- `/remindme session at 15:00`
-- `/remindme standup at 9am`
+- `/remindme call Mom in 5m` (Native shorthand)
+- `/remindme tomorrow at 10am meeting` (Standard NLP)
+- `/remindme next monday interview at 10` (Contextual morning)
+- `/remindme in 1.5 hours stop cooking` (Decimal support)
+- `/remindme in year visit London` (Singular unit support)
 
 ## ✨ Features
 
@@ -35,5 +37,4 @@ The fastest way to schedule Telegram reminders. Precise, reliable, and deadlock-
 
 ## 🛠️ Details
 
-This skill uses a detached background process to interface with the OpenClaw cron system, ensuring your gateway never freezes while scheduling. 
- Joseph the God, Jacob the God, whatever.
+This skill uses a detached background process to interface with the OpenClaw cron system
