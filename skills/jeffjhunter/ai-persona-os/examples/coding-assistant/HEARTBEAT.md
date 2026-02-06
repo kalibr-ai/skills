@@ -1,128 +1,38 @@
-# HEARTBEAT.md — Daily Operations Checklist
+# Heartbeat checklist
 
-Run at every session start.
+## Migration check (run once)
+- If this file is longer than 30 lines: you have the OLD template. Replace this file with the one at your ai-persona-os skill folder: assets/HEARTBEAT-template.md. Then re-run heartbeat.
 
----
+## Context guard
+- Check context %. If ≥70%: write checkpoint to memory/YYYY-MM-DD.md NOW. Skip everything else.
+- If last checkpoint was >30min ago and context >50%: write checkpoint before continuing.
 
-## Step 0: Context Check (MANDATORY FIRST)
+## Memory maintenance
+- MEMORY.md exists? If missing: create from latest checkpoint or session notes.
+- MEMORY.md size? If approaching 4KB: flag for pruning.
+- Stale logs in memory/? If any >90 days: note for archiving.
+- Uncompleted items from yesterday's log? Surface them.
 
-- [ ] Check context % right now: _____%
-- [ ] If ≥ 70%: **STOP**. Write checkpoint to memory/[today].md immediately
-- [ ] Only proceed after checkpoint is written
+## Dev checks
+- Any running background tasks (builds, tests, deploys)? Check status.
+- Any open PRs waiting on review? Flag if >24h old.
+- CI/CD: check last pipeline status if accessible.
 
----
+## Report format (STRICT)
+Output EXACTLY this format. Each indicator MUST be on its own line with a blank line between them:
 
-## Step 1: Load Context
+🟢 Context: [%] — [status]
 
-- [ ] Read memory/[today].md (if exists)
-- [ ] Read memory/[yesterday].md
-- [ ] Check for `URGENT:` or `BLOCKING:` flags
+🟢 Memory: [sync state]
 
----
+🟢 Workspace: [status]
 
-## Step 1.5: Checkpoint Trigger
+🟢 Tasks: [status]
 
-Write checkpoint every ~10 exchanges or when context ≥ 70%.
+🟢 CI/CD: [status]
 
----
-
-## Step 2: System Status
-
-- [ ] Dev environment accessible
-- [ ] Git repo accessible
-- [ ] Memory files readable/writable
-
-Status: 🟢 / 🟡 / 🔴
-
----
-
-## Step 3: Priority Scan
-
-### P1 — Critical (Check First)
-- [ ] Direct messages from Alex
-- [ ] CI/CD pipeline status — any failed builds?
-- [ ] Production errors/alerts
-- [ ] Open PRs awaiting review
-
-### P2 — Important
-- [ ] Open issues assigned to Alex
-- [ ] Blocked PRs needing changes
-- [ ] Dependency security alerts
-
-### P3 — Monitor
-- [ ] Team chat for relevant discussions
-- [ ] New issues in the repo
-
----
-
-## Step 4: Development Status
-
-### Current Branch
-- Branch: `_____`
-- Last commit: `_____`
-- Status: Clean / Uncommitted changes
-
-### Open Work
-| PR/Issue | Status | Next Action |
-|----------|--------|-------------|
-| [#123] | [In Review] | [Waiting for feedback] |
-| [#124] | [In Progress] | [Need to finish tests] |
-
-### Blockers
-- [ ] Any blockers on current work?
-- [ ] Dependencies waiting on others?
-
----
-
-## Step 5: Assessment
-
-- [ ] Any failing tests or builds?
-- [ ] Any PRs that need attention?
-- [ ] Any production issues?
-- [ ] Is the current task clear?
-
-**Today's Focus:** _____
-**First Action:** _____
-
----
-
-## Response Protocol
-
-**If something needs attention:**
-```
-🔴 ALERT: [What's wrong]
-Location: [Repo/PR/Issue]
-Impact: [What's affected]
-Recommended: [What to do]
-```
-
-**If all clear:**
-```
-HEARTBEAT_OK
-- Build: ✅ Passing
-- PRs: [X] open, [Y] need review
-- Focus: [Current task]
-```
-
----
-
-## Quick Commands
-
-```bash
-# Git status
-git status
-git log --oneline -5
-
-# Run tests
-npm test / pytest / go test
-
-# Check CI
-gh pr checks
-
-# List open PRs
-gh pr list
-```
-
----
-
-*Part of AI Persona OS by Jeff J Hunter — https://jeffjhunter.com*
+Replace 🟢 with 🟡 (attention) or 🔴 (action required) as needed.
+If action was taken: add a line starting with → describing what was done.
+If anything needs user attention: add a line starting with → and specifics.
+If ALL indicators are 🟢 and no action was taken: reply only HEARTBEAT_OK
+Do NOT use markdown tables. Do NOT use Step 0/1/2/3/4 format. Do NOT use headers.

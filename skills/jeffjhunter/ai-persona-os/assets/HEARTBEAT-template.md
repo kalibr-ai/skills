@@ -1,170 +1,31 @@
-# HEARTBEAT.md - Daily Check-In Checklist
+# Heartbeat checklist
 
-**Purpose:** 10-minute daily operational review. Direct action checklist, not documentation.
+## Migration check (run once)
+- If this file is longer than 30 lines: you have the OLD template. Replace this file with the one at your ai-persona-os skill folder: assets/HEARTBEAT-template.md. Then re-run heartbeat.
 
----
+## Context guard
+- Check context %. If ≥70%: write checkpoint to memory/YYYY-MM-DD.md NOW. Skip everything else.
+- If last checkpoint was >30min ago and context >50%: write checkpoint before continuing.
 
-## Step 0: Context Check (MANDATORY FIRST)
+## Memory maintenance
+- MEMORY.md exists? If missing: create from latest checkpoint or session notes.
+- MEMORY.md size? If approaching 4KB: flag for pruning.
+- Stale logs in memory/? If any >90 days: note for archiving.
+- Uncompleted items from yesterday's log? Surface them.
 
-**DO THIS BEFORE ANYTHING ELSE**
+## Report format (STRICT)
+Output EXACTLY this format. Each indicator MUST be on its own line with a blank line between them:
 
-- [ ] Check context % right now: _____%
-- [ ] If ≥ 70%: **STOP**. Write checkpoint to `memory/YYYY-MM-DD.md` immediately
-- [ ] Include in checkpoint: Decisions made, action items, current status, blockers
-- [ ] Do not proceed with other work until checkpoint is written
-- [ ] Only then proceed to Step 1
+🟢 Context: [%] — [status]
 
-**Why:** Context loss kills efficiency. This prevents it.
+🟢 Memory: [sync state]
 
----
+🟢 Workspace: [status]
 
-## Step 1: Get Context (First)
+🟢 Tasks: [status]
 
-**Read your primary channel/inbox:**
-- [ ] Check primary communication channel (DMs, Slack, Discord, Email)
-- [ ] Catch up on context since last session
-- [ ] Do I have the full picture, or am I missing something?
-
-**Load previous state:**
-- [ ] Read `memory/[TODAY].md` (if exists)
-- [ ] Read `memory/[YESTERDAY].md`
-- [ ] Check for `URGENT:` or `BLOCKING:` flags
-
----
-
-## Step 1.5: Checkpoint Trigger
-
-**Write checkpoint when:**
-- [ ] Every ~10 exchanges during conversation
-- [ ] At natural end of session
-- [ ] Before major decisions
-- [ ] When context reaches 70%+
-
-**Checkpoint location:** `memory/YYYY-MM-DD.md`
-
----
-
-## Step 2: System Status
-
-### Core Systems
-- [ ] Memory files accessible
-- [ ] Workspace readable/writable  
-- [ ] Required tools available
-
-### Integrations (customize for your setup)
-- [ ] [Integration 1]: _____
-- [ ] [Integration 2]: _____
-- [ ] [Integration 3]: _____
-
-**Status:** 🟢 All OK / 🟡 Degraded / 🔴 Issues
-
----
-
-## Step 3: Priority Channels
-
-Check in priority order. Stop at first item requiring immediate action.
-
-### P1 — Critical (Check First)
-- [ ] Direct messages from [HUMAN NAME]
-- [ ] [Your critical channel]
-
-### P2 — Important
-- [ ] [Team channels]
-- [ ] [Project updates]
-
-### P3 — Monitor
-- [ ] [General channels]
-- [ ] [Notifications]
-
-### P4 — Background
-- [ ] [Low-priority items]
-
----
-
-## Step 4: Assessment
-
-- [ ] Any blocking issues for [HUMAN NAME]?
-- [ ] Unanswered questions in priority channels?
-- [ ] Anything time-sensitive?
-- [ ] Am I caught up on context?
-
-**Summary:**
-- System health: _____
-- Items requiring attention: _____
-- Today's focus: _____
-- First action: _____
-
----
-
-## Response Protocol
-
-**If something needs attention:**
-```
-Alert with specifics:
-- Where: [Channel/Source]
-- What: [Issue]
-- Action needed: [Recommendation]
-```
-
-**If nothing urgent:**
-```
-HEARTBEAT_OK
-```
-
----
-
-## HEARTBEAT Report Format
-
-```
-HEARTBEAT - [Date], [Time]
-📚 Context: [usage]/[limit] ([%])
-⚙️ Status: [Operational status]
-
-✅ Step 1: Context
-[details]
-
-✅ Step 2: System Status
-[details]
-
-✅ Step 3: Priority Channels
-[details]
-
-✅ Step 4: Assessment
-- [bullet points]
-
-[HEARTBEAT_OK or items requiring attention]
-```
-
----
-
-## Automated Tasks
-
-[Add recurring automated tasks here as they're established]
-
----
-
-## Quick Reference
-
-- **Session Context:** memory/YYYY-MM-DD.md
-- **Permanent Facts:** MEMORY.md
-- **Operating Rules:** AGENTS.md
-- **Workflows:** WORKFLOWS.md
-- **Identity:** SOUL.md
-
----
-
-## Behavioral Reminders
-
-From SOUL.md:
-- Direct, no fluff
-- Quality over quantity
-- Be selective, not reactive
-- Value time above all
-
----
-
-*Customize this checklist for your specific channels and integrations.*
-
----
-
-*Part of AI Persona OS by Jeff J Hunter — https://jeffjhunter.com*
+Replace 🟢 with 🟡 (attention) or 🔴 (action required) as needed.
+If action was taken: add a line starting with → describing what was done.
+If anything needs user attention: add a line starting with → and specifics.
+If ALL indicators are 🟢 and no action was taken: reply only HEARTBEAT_OK
+Do NOT use markdown tables. Do NOT use Step 0/1/2/3/4 format. Do NOT use headers.

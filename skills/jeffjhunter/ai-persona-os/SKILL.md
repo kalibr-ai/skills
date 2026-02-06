@@ -1,10 +1,10 @@
 ---
 name: ai-persona-os
-version: 1.2.0
-description: "The complete operating system for OpenClaw agents. Production-grade with security inoculation, team integration, proactive patterns, never-forget protocol, 8 operating rules, and 4 growth loops. One install. Complete system. Built by Jeff J Hunter."
+version: 1.3.1
+description: "The complete operating system for OpenClaw agents. Production-grade with enforced heartbeat protocol, traffic-light status indicators, auto-migration, context protection, security inoculation, shared-channel discipline, team integration, proactive patterns, never-forget protocol, 8 operating rules, and 4 growth loops. One install. Complete system. Built by Jeff J Hunter."
+tags: [ai-persona, framework, workspace, memory, reliable-agent, production, context-protection, never-forget, security, team, heartbeat]
 author: Jeff J Hunter
 homepage: https://jeffjhunter.com
-tags: [ai-persona, framework, workspace, memory, reliable-agent, production, context-protection, never-forget, security, team]
 ---
 
 # 🤖 AI Persona OS
@@ -73,6 +73,7 @@ AI Persona OS is the exact system I use to run production agents that generate r
 | **Learning System** | Turn every mistake into a permanent asset |
 | **4 Growth Loops** | Continuous improvement patterns that compound over time |
 | **Session Management** | Start every session ready, miss nothing |
+| **Heartbeat v2** | Enforced protocol with 🟢🟡🔴 indicators, auto-suppression, and cron templates |
 | **Setup Wizard v2** | Educational 10-minute setup that teaches while building |
 | **Starter Packs** | Pre-configured examples (Coding, Executive, Marketing) — see what great looks like |
 | **Status Dashboard** | See your entire system health at a glance |
@@ -150,7 +151,7 @@ Every AI Persona follows these operating rules:
 | 2 | **Write immediately** | If it's important, it's written NOW |
 | 3 | **Diagnose before escalating** | Try 10 approaches before asking |
 | 4 | **Security is non-negotiable** | No exceptions, no "just this once" |
-| 5 | **Selective engagement** | Not every input deserves a response |
+| 5 | **Selective engagement (HARD BOUNDARY)** | Never respond in shared channels unless @mentioned |
 | 6 | **Check identity every session** | Prevent drift, stay aligned |
 | 7 | **Direct communication** | Skip corporate speak |
 | 8 | **Execute, don't just plan** | Action over discussion |
@@ -368,6 +369,58 @@ Step 4: Assessment
 
 ---
 
+## Heartbeat Protocol v2 (v1.3.0, patched v1.3.1)
+
+The #1 issue with v1.2.0: heartbeats fired but agents rubber-stamped `HEARTBEAT_OK` without running the protocol. v1.3.0 fixes this with an architecture that matches how OpenClaw actually works. v1.3.1 patches line break rendering, adds auto-migration, and bakes in the heartbeat prompt override.
+
+### What Changed
+
+| v1.2.x | v1.3.1 |
+|--------|--------|
+| 170-line HEARTBEAT.md (documentation) | ~30-line HEARTBEAT.md (imperative checklist) |
+| Agent reads docs, interprets loosely | Agent executes commands, produces structured output |
+| No output format enforcement | 🟢🟡🔴 traffic light indicators required |
+| Full protocol every 30min (expensive) | Pulse every 30min + full briefing via cron (efficient) |
+| No migration path | Auto-migration detects old template and self-replaces |
+| Agents revert to old format | Heartbeat prompt override prevents format regression |
+| Indicators render on one line | Blank lines forced between each indicator |
+
+### Two-Layer Design
+
+**Layer 1 — Heartbeat Pulse (every 30 minutes)**
+Tiny HEARTBEAT.md runs context guard + memory health. If everything's green, replies `HEARTBEAT_OK` → OpenClaw suppresses delivery → your phone stays silent.
+
+**Layer 2 — Daily Briefing (cron job, 1-2x daily)**
+Full 4-step protocol runs in an isolated session. Deep channel scan, priority assessment, structured report delivered to your chat.
+
+### Output Format
+
+Every heartbeat that surfaces something uses this format (note the blank lines between indicators — critical for Discord/WhatsApp rendering):
+```
+🟢 Context: 22% — Healthy
+
+🟡 Memory: MEMORY.md at 3.8KB (limit 4KB)
+
+🟢 Workspace: Clean
+
+🟢 Tasks: None pending
+
+→ MEMORY.md approaching limit — pruning recommended
+```
+
+Indicators: 🟢 = healthy, 🟡 = attention recommended, 🔴 = action required.
+
+### Setup
+
+1. Copy the new template: `cp assets/HEARTBEAT-template.md ~/workspace/HEARTBEAT.md`
+2. **Add heartbeat prompt override** (strongly recommended) — see `references/heartbeat-automation.md`
+3. (Optional) Add cron jobs — see `assets/cron-payloads/`
+4. (Optional) Set `requireMention: true` for all Discord guilds — enforces Rule 5
+
+Full guide: `references/heartbeat-automation.md`
+
+---
+
 ## Scripts & Commands
 
 | Script | What It Does |
@@ -390,20 +443,24 @@ assets/
 ├── SECURITY-template.md    → Cognitive inoculation & credential rules
 ├── MEMORY-template.md      → Permanent facts & context management
 ├── AGENTS-template.md      → Operating rules + learned lessons + proactive patterns
-├── HEARTBEAT-template.md   → Daily checklist (role-aware, team-integrated)
+├── HEARTBEAT-template.md   → Tiny imperative checklist with 🟢🟡🔴 format + auto-migration check (PATCHED v1.3.1)
 ├── WORKFLOWS-template.md   → Growth loops + process documentation
-├── TOOLS-template.md       → Tool configuration & gotchas (NEW)
-├── INDEX-template.md       → File organization reference (NEW)
-├── KNOWLEDGE-template.md   → Domain expertise (NEW)
+├── TOOLS-template.md       → Tool configuration & gotchas
+├── INDEX-template.md       → File organization reference
+├── KNOWLEDGE-template.md   → Domain expertise
 ├── daily-log-template.md   → Session log template
 ├── LEARNINGS-template.md   → Learning capture template
 ├── ERRORS-template.md      → Error tracking template
-└── checkpoint-template.md  → Context preservation formats
+├── checkpoint-template.md  → Context preservation formats
+└── cron-payloads/          → Ready-to-use cron job templates (NEW v1.3.0)
+    ├── morning-briefing.sh → Daily 4-step protocol via isolated cron
+    ├── eod-checkpoint.sh   → End-of-day context flush
+    └── weekly-review.sh    → Weekly learning promotion & archiving
 ```
 
 ---
 
-## 🎯 Starter Packs (NEW in v1.2.0)
+## 🎯 Starter Packs (Updated in v1.3.0)
 
 Don't know where to start? Copy a starter pack and customize it.
 
@@ -412,18 +469,18 @@ examples/
 ├── coding-assistant/       → For developers
 │   ├── README.md          → How to use this pack
 │   ├── SOUL.md            → "Axiom" — direct, technical assistant
-│   ├── HEARTBEAT.md       → CI/CD, PRs, build status checks
+│   ├── HEARTBEAT.md       → Context guard + CI/CD + PR status (🟢🟡🔴 format)
 │   └── KNOWLEDGE.md       → Tech stack, code patterns, commands
 │
 ├── executive-assistant/    → For exec support
 │   ├── README.md          → How to use this pack
 │   ├── SOUL.md            → "Atlas" — anticipatory, discreet assistant
-│   └── HEARTBEAT.md       → Calendar, comms triage, relationship tracking
+│   └── HEARTBEAT.md       → Context guard + calendar + comms triage (🟢🟡🔴 format)
 │
 └── marketing-assistant/    → For brand & content
     ├── README.md          → How to use this pack
     ├── SOUL.md            → "Spark" — energetic, brand-aware assistant
-    └── HEARTBEAT.md       → Performance tracking, engagement, content calendar
+    └── HEARTBEAT.md       → Context guard + content calendar + campaigns (🟢🟡🔴 format)
 ```
 
 **How to use a Starter Pack:**
@@ -440,7 +497,8 @@ examples/
 references/
 ├── never-forget-protocol.md  → Complete context protection system
 ├── security-patterns.md      → Prompt injection defense
-└── proactive-playbook.md     → Reverse prompting & anticipation
+├── proactive-playbook.md     → Reverse prompting & anticipation
+└── heartbeat-automation.md   → Heartbeat + cron configuration (NEW)
 ```
 
 ---
@@ -456,6 +514,17 @@ scripts/
 ├── weekly-review.sh    → Learning promotion & archiving
 └── security-audit.sh   → Monthly security check
 ```
+
+### Cron Payloads (NEW v1.3.0)
+
+```
+assets/cron-payloads/
+├── morning-briefing.sh → Copy & paste: daily 4-step protocol
+├── eod-checkpoint.sh   → Copy & paste: end-of-day context flush
+└── weekly-review.sh    → Copy & paste: weekly learning promotion
+```
+
+See `references/heartbeat-automation.md` for configuration guide.
 
 ---
 

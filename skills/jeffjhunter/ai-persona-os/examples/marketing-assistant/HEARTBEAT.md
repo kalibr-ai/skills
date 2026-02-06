@@ -1,193 +1,38 @@
-# HEARTBEAT.md — Daily Operations Checklist
+# Heartbeat checklist
 
-Run at every session start.
+## Migration check (run once)
+- If this file is longer than 30 lines: you have the OLD template. Replace this file with the one at your ai-persona-os skill folder: assets/HEARTBEAT-template.md. Then re-run heartbeat.
 
----
+## Context guard
+- Check context %. If ≥70%: write checkpoint to memory/YYYY-MM-DD.md NOW. Skip everything else.
+- If last checkpoint was >30min ago and context >50%: write checkpoint before continuing.
 
-## Step 0: Context Check (MANDATORY FIRST)
+## Memory maintenance
+- MEMORY.md exists? If missing: create from latest checkpoint or session notes.
+- MEMORY.md size? If approaching 4KB: flag for pruning.
+- Stale logs in memory/? If any >90 days: note for archiving.
+- Uncompleted items from yesterday's log? Surface them.
 
-- [ ] Check context % right now: _____%
-- [ ] If ≥ 70%: **STOP**. Write checkpoint to memory/[today].md immediately
-- [ ] Only proceed after checkpoint is written
+## Marketing checks
+- Content calendar: Anything scheduled for today/tomorrow?
+- Active campaigns: Any metrics that need checking?
+- Engagement: Any comments/replies needing response?
 
----
+## Report format (STRICT)
+Output EXACTLY this format. Each indicator MUST be on its own line with a blank line between them:
 
-## Step 1: Load Context
+🟢 Context: [%] — [status]
 
-- [ ] Read memory/[today].md (if exists)
-- [ ] Read memory/[yesterday].md
-- [ ] Check for `URGENT:` or `BLOCKING:` flags
+🟢 Memory: [sync state]
 
----
+🟢 Workspace: [status]
 
-## Step 1.5: Checkpoint Trigger
+🟢 Tasks: [status]
 
-Write checkpoint every ~10 exchanges or when context ≥ 70%.
+🟢 Content: [status]
 
----
-
-## Step 2: System Status
-
-- [ ] Social platforms accessible
-- [ ] Analytics accessible
-- [ ] Content calendar accessible
-
-Status: 🟢 / 🟡 / 🔴
-
----
-
-## Step 3: Priority Scan
-
-### P1 — Critical (Check First)
-- [ ] Direct messages from Morgan
-- [ ] Social media mentions/comments needing response
-- [ ] Any negative sentiment or PR issues
-- [ ] Campaign performance alerts
-
-### P2 — Important
-- [ ] Content scheduled for today
-- [ ] Engagement on recent posts
-- [ ] Competitor activity
-- [ ] Trending topics relevant to us
-
-### P3 — Monitor
-- [ ] This week's content calendar
-- [ ] Follower growth trends
-- [ ] Industry news
-
----
-
-## Step 4: Performance Review
-
-### Yesterday's Content
-| Platform | Post | Engagement | vs Avg |
-|----------|------|------------|--------|
-| [Platform] | [Topic] | [Rate] | [+/-] |
-
-### Trending Now
-| Topic | Relevance | Opportunity? |
-|-------|-----------|--------------|
-| [Trend] | [H/M/L] | [Yes/No/Maybe] |
-
-### This Week's Pipeline
-| Day | Platform | Content | Status |
-|-----|----------|---------|--------|
-| Mon | | | |
-| Tue | | | |
-| Wed | | | |
-| Thu | | | |
-| Fri | | | |
-
----
-
-## Step 5: Engagement Check
-
-### Comments Needing Response
-| Platform | Post | Comment | Priority |
-|----------|------|---------|----------|
-| [Platform] | [Post] | [Summary] | [H/M/L] |
-
-### DMs/Messages
-| From | Platform | Topic | Needs Response? |
-|------|----------|-------|-----------------|
-| [Who] | [Where] | [What] | [Yes/No] |
-
-### Mentions to Acknowledge
-| Platform | Who | Context |
-|----------|-----|---------|
-| [Platform] | [Account] | [What they said] |
-
----
-
-## Step 6: Assessment
-
-- [ ] Any PR/reputation issues?
-- [ ] Any high-performing content to amplify?
-- [ ] Any underperforming content to learn from?
-- [ ] Any trends we should join?
-- [ ] Is today's content ready?
-
-**Today's Focus:** _____
-**First Action:** _____
-
----
-
-## Response Protocol
-
-**If something needs attention:**
-```
-🔴 ALERT: [What's happening]
-Platform: [Where]
-Sentiment: [Positive/Negative/Neutral]
-Recommended: [Action to take]
-```
-
-**Daily Briefing Format:**
-```
-MARKETING BRIEFING — [Date]
-
-📊 YESTERDAY'S PERFORMANCE
-- Top post: [Platform] — [Engagement rate]
-- Total engagement: [Number]
-- New followers: [Number]
-
-🔥 TRENDING NOW
-- [Relevant trend] — [Opportunity assessment]
-
-📅 TODAY'S CONTENT
-- [Platform]: [Topic] — [Status]
-- [Platform]: [Topic] — [Status]
-
-💬 ENGAGEMENT NEEDED
-- [X] comments to respond to
-- [Y] DMs pending
-- [Z] mentions to acknowledge
-
-⚠️ WATCH
-- [Any concerns or opportunities]
-
-🎯 PRIORITIES
-1. [Priority 1]
-2. [Priority 2]
-3. [Priority 3]
-```
-
-**If all clear:**
-```
-HEARTBEAT_OK
-- Performance: [Above/At/Below] average
-- Content: [Today's posts] scheduled
-- Engagement: No urgent items
-- Focus: [Today's priority]
-```
-
----
-
-## Quick References
-
-### Engagement Rate Benchmarks
-| Platform | Good | Great | Excellent |
-|----------|------|-------|-----------|
-| LinkedIn | 2% | 4% | 6%+ |
-| Instagram | 3% | 5% | 8%+ |
-| Twitter | 0.5% | 1% | 2%+ |
-| TikTok | 5% | 10% | 15%+ |
-
-### Response Time Goals
-| Type | Target |
-|------|--------|
-| Negative comments | < 1 hour |
-| Questions | < 4 hours |
-| Positive mentions | < 24 hours |
-| DMs | < 24 hours |
-
-### Content Mix (Weekly)
-- Educational: 2-3 posts
-- Behind-the-scenes: 1-2 posts
-- Social proof: 1-2 posts
-- Engagement: 1-2 posts
-- Promotional: 1 post
-
----
-
-*Part of AI Persona OS by Jeff J Hunter — https://jeffjhunter.com*
+Replace 🟢 with 🟡 (attention) or 🔴 (action required) as needed.
+If action was taken: add a line starting with → describing what was done.
+If anything needs user attention: add a line starting with → and specifics.
+If ALL indicators are 🟢 and no action was taken: reply only HEARTBEAT_OK
+Do NOT use markdown tables. Do NOT use Step 0/1/2/3/4 format. Do NOT use headers.
