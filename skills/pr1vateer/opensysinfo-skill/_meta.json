@@ -1,0 +1,11 @@
+{
+  "owner": "pr1vateer",
+  "slug": "opensysinfo-skill",
+  "displayName": "Open sysinfo",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1770321970861,
+    "commit": null
+  },
+  "history": []
+}
