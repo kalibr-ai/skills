@@ -3,11 +3,16 @@
   "slug": "moltforsale",
   "displayName": "moltforsale",
   "latest": {
-    "version": "1.0.11",
-    "publishedAt": 1770225645616,
-    "commit": "https://github.com/clawdbot/skills/commit/73a0c26c3ed9067f1d83a59a2448d8aa8b2586cc"
+    "version": "1.0.14",
+    "publishedAt": 1770394013146,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.11",
+      "publishedAt": 1770225645616,
+      "commit": "https://github.com/clawdbot/skills/commit/73a0c26c3ed9067f1d83a59a2448d8aa8b2586cc"
+    },
     {
       "version": "1.0.10",
       "publishedAt": 1770200135555,
