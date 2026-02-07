@@ -28,9 +28,29 @@ function hasErrorishSignal(signals) {
   return false;
 }
 
+// Opportunity signals that indicate a chance to innovate (not just fix).
+var OPPORTUNITY_SIGNALS = [
+  'user_feature_request',
+  'user_improvement_suggestion',
+  'perf_bottleneck',
+  'capability_gap',
+  'stable_success_plateau',
+  'external_opportunity',
+];
+
+function hasOpportunitySignal(signals) {
+  var list = Array.isArray(signals) ? signals.map(function (s) { return String(s || ''); }) : [];
+  for (var i = 0; i < OPPORTUNITY_SIGNALS.length; i++) {
+    if (list.includes(OPPORTUNITY_SIGNALS[i])) return true;
+  }
+  return false;
+}
+
 function mutationCategoryFromContext({ signals, driftEnabled }) {
   if (hasErrorishSignal(signals)) return 'repair';
   if (driftEnabled) return 'innovate';
+  // Auto-innovate: opportunity signals present and no errors
+  if (hasOpportunitySignal(signals)) return 'innovate';
   return 'optimize';
 }
 
@@ -149,5 +169,6 @@ module.exports = {
   normalizeMutation,
   isHighRiskMutationAllowed,
   isHighRiskPersonality,
+  hasOpportunitySignal,
 };
 

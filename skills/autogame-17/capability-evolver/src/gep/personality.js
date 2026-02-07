@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getMemoryDir } = require('./paths');
+const { hasOpportunitySignal } = require('./mutation');
 
 function nowIso() {
   return new Date().toISOString();
@@ -183,6 +184,10 @@ function proposeMutations({ baseState, reason, driftEnabled, signals }) {
   } else if (sig.includes('log_error') || sig.some(x => x.startsWith('errsig:') || x.startsWith('errsig_norm:'))) {
     muts.push({ type: 'PersonalityMutation', param: 'rigor', delta: +0.1, reason: r || 'repair instability' });
     muts.push({ type: 'PersonalityMutation', param: 'risk_tolerance', delta: -0.1, reason: 'reduce risky changes under errors' });
+  } else if (hasOpportunitySignal(sig)) {
+    // Opportunity detected: nudge towards creativity to enable innovation.
+    muts.push({ type: 'PersonalityMutation', param: 'creativity', delta: +0.1, reason: r || 'opportunity signal detected' });
+    muts.push({ type: 'PersonalityMutation', param: 'risk_tolerance', delta: +0.05, reason: 'allow exploration for innovation' });
   } else {
     // Plateau-like generic: slightly increase rigor, slightly decrease verbosity (more concise execution).
     muts.push({ type: 'PersonalityMutation', param: 'rigor', delta: +0.05, reason: r || 'stability bias' });

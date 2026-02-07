@@ -80,10 +80,18 @@ function extractCapabilityCandidates({ recentSessionTranscript, signals }) {
   // Signals-as-candidates: capture recurring pain points as reusable capability shapes.
   const signalList = Array.isArray(signals) ? signals : [];
   const signalCandidates = [
+    // Defensive signals
     { signal: 'log_error', title: 'Repair recurring runtime errors' },
     { signal: 'protocol_drift', title: 'Prevent protocol drift and enforce auditable outputs' },
     { signal: 'windows_shell_incompatible', title: 'Avoid platform-specific shell assumptions (Windows compatibility)' },
     { signal: 'session_logs_missing', title: 'Harden session log detection and fallback behavior' },
+    // Opportunity signals (innovation)
+    { signal: 'user_feature_request', title: 'Implement user-requested feature' },
+    { signal: 'user_improvement_suggestion', title: 'Apply user improvement suggestion' },
+    { signal: 'perf_bottleneck', title: 'Resolve performance bottleneck' },
+    { signal: 'capability_gap', title: 'Fill capability gap' },
+    { signal: 'stable_success_plateau', title: 'Explore new strategies during stability plateau' },
+    { signal: 'external_opportunity', title: 'Evaluate external A2A asset for local adoption' },
   ];
 
   for (const sc of signalCandidates) {

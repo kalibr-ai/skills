@@ -137,6 +137,30 @@ MAJOR.MINOR.PATCH
 
 ## Changelog
 
+### v1.6.0
+- Add innovation/opportunity signal detection: user_feature_request, user_improvement_suggestion, perf_bottleneck, capability_gap, stable_success_plateau, external_opportunity.
+- Add innovate Gene (gene_gep_innovate_from_opportunity) for proactive feature development.
+- Auto-innovate mutation when opportunity signals are present (no longer requires --drift flag).
+- Personality evolution now responds to opportunity signals by increasing creativity.
+- Safety: repair still takes priority over innovate when errors are present.
+
+### v1.5.1
+- Add containerized vibe testing framework (Docker + node:22-bookworm, OpenClaw-compatible environment).
+- 7 end-to-end tests: module load, dry-run solidify, schema compliance, A2A round-trip, full evolve+solidify, loop gating, env fingerprint.
+- Add internal daemon loop with suicide guard for memory leak protection.
+- One-command test: `npm run test:vibe`.
+
+### v1.5.0
+- Add content-addressable asset IDs (SHA-256 canonical hashing) for deduplication, tamper detection, and cross-node consistency.
+- Add environment fingerprint capture (node version, platform, arch, evolver version) embedded in EvolutionEvents, Capsules, and ValidationReports.
+- Add standardized ValidationReport type with machine-readable schema, full command results, and env fingerprint.
+- Add GEP A2A protocol layer with 6 message types (hello/publish/fetch/report/decision/revoke) and pluggable transport interface.
+- Add FileTransport as default A2A transport (JSONL outbox/inbox).
+- Add asset_id integrity verification on A2A ingest; reject tampered assets.
+- Add schema_version field to all GEP asset types (Gene, Capsule, EvolutionEvent, ValidationReport).
+- Fix: dry-run mode no longer triggers rollback.
+- Merge backport/online-fixes: self-contained crash recovery with recover_loop.js.
+
 ### v1.4.4
 - Add validation command safety check: Gene validation commands are gated by prefix whitelist (node/npm/npx) and shell operator blocking.
 - Add validation audit on A2A Gene promotion: external Genes with unsafe validation commands are rejected before promotion.
