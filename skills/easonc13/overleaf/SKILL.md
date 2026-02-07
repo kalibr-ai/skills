@@ -110,6 +110,26 @@ pyoverleaf ls
 pyoverleaf --host overleaf.mycompany.com ls
 ```
 
+## Eason's Workflow Requirements
+
+**When pulling from Overleaf:**
+1. Download Overleaf version to `/tmp/`
+2. Compare with local version using `diff`
+3. Report differences to Eason (summarize what changed)
+4. Ask: merge? overwrite local? overwrite Overleaf? or other?
+5. Only proceed after Eason confirms
+
+**Push rules (from TOOLS.md):**
+- ❌ 禁止自行推送到 Overleaf
+- ✅ 只能從 Overleaf 拉到 local
+- ⚠️ 推送需要 Eason 明確授權，每次授權只能推一次
+
+## Example
+
+Here's an example of using the Overleaf skill to remove em dashes (a common AI writing artifact) from a paper and push the changes:
+
+![Example: Remove em dashes and push to Overleaf](example-em-dash.jpg)
+
 ## Troubleshooting
 
 - **Auth error**: User needs to log into Overleaf in browser first
