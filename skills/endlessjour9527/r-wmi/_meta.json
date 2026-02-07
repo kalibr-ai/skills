@@ -3,11 +3,16 @@
   "slug": "r-wmi",
   "displayName": "openclaw-lingzhu",
   "latest": {
-    "version": "0.0.4",
-    "publishedAt": 1770261684122,
-    "commit": "https://github.com/clawdbot/skills/commit/5c925f91356ec03fad0bb43cea63da5afaa45eb0"
+    "version": "0.0.6",
+    "publishedAt": 1770457975586,
+    "commit": null
   },
   "history": [
+    {
+      "version": "0.0.4",
+      "publishedAt": 1770261684122,
+      "commit": "https://github.com/clawdbot/skills/commit/5c925f91356ec03fad0bb43cea63da5afaa45eb0"
+    },
     {
       "version": "0.0.3",
       "publishedAt": 1770176034312,
