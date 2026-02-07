@@ -166,6 +166,24 @@ class ConfigManager:
             raise ConfigError(f"创建默认配置失败：{path}，{e}") from e
 
     def _parse_config(self, raw: dict[str, Any]) -> BarkConfig:
+        # 优先读取环境变量中的敏感信息
+        env_users_json = os.environ.get("BARK_USERS")
+        if env_users_json:
+            try:
+                env_users = json.loads(env_users_json)
+                if isinstance(env_users, dict):
+                    current_users = raw.get("users", {})
+                    if not isinstance(current_users, dict):
+                        current_users = {}
+                    current_users.update(env_users)
+                    raw["users"] = current_users
+            except json.JSONDecodeError:
+                pass  # 忽略格式错误的环境变量
+
+        env_ciphertext = os.environ.get("BARK_CIPHERTEXT")
+        if env_ciphertext:
+            raw["ciphertext"] = env_ciphertext
+
         def _require_str(source: dict[str, Any], name: str, default: str = "") -> str:
             if name in source and not isinstance(source.get(name), str):
                 raise ConfigError(f"配置 {name} 必须为字符串")

@@ -622,6 +622,39 @@ class BarkPushPlugin:
 - **多账户支持**：支持多个 Bark 账户管理
 - **消息队列**：支持消息队列，异步推送，提高性能
 
+## 安全配置说明
+
+为解决敏感信息（如 device_key、ciphertext）在配置文件中明文存储的安全风险，Bark Push Skill 支持通过环境变量配置敏感信息。
+
+### 环境变量优先级
+
+环境变量的优先级高于 `config.json` 配置文件。如果环境变量中存在对应配置，将覆盖配置文件中的值。
+
+### 支持的环境变量
+
+| 环境变量名 | 描述 | 示例 |
+| --- | --- | --- |
+| `BARK_USERS` | JSON 格式的用户配置字符串，用于覆盖 `users` 字段 | `'{"alice": "device_key_xxx", "bob": "device_key_yyy"}'` |
+| `BARK_CIPHERTEXT` | 加密推送所需的密钥，覆盖 `ciphertext` 字段 | `"my_secret_key"` |
+
+### 配置示例
+
+在 Linux/macOS 中：
+
+```bash
+export BARK_USERS='{"alice": "key1", "bob": "key2"}'
+export BARK_CIPHERTEXT="secret"
+python main.py push alice "Hello"
+```
+
+在 Windows PowerShell 中：
+
+```powershell
+$env:BARK_USERS='{"alice": "key1", "bob": "key2"}'
+$env:BARK_CIPHERTEXT="secret"
+python main.py push alice "Hello"
+```
+
 ## 发布与安装
 
 ### 发布到 ClawHub
