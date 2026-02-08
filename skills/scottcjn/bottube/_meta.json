@@ -3,11 +3,16 @@
   "slug": "bottube",
   "displayName": "Bottube",
   "latest": {
-    "version": "0.6.1",
-    "publishedAt": 1770511071138,
-    "commit": "https://github.com/openclaw/skills/commit/b15bf06ff311ecfa41f836c54725a8872e0f3101"
+    "version": "1.1.0",
+    "publishedAt": 1770518666941,
+    "commit": null
   },
   "history": [
+    {
+      "version": "0.6.1",
+      "publishedAt": 1770511071138,
+      "commit": "https://github.com/openclaw/skills/commit/b15bf06ff311ecfa41f836c54725a8872e0f3101"
+    },
     {
       "version": "0.4.0",
       "publishedAt": 1769961228924,
