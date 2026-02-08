@@ -3,9 +3,15 @@
   "slug": "lulu-monitor",
   "displayName": "LuLu Monitor",
   "latest": {
-    "version": "1.0.0",
-    "publishedAt": 1770471212698,
-    "commit": "https://github.com/openclaw/skills/commit/38d16135490fe5c286c1e59fee4e22c40354fc48"
+    "version": "1.2.0",
+    "publishedAt": 1770526485250,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1770471212698,
+      "commit": "https://github.com/openclaw/skills/commit/38d16135490fe5c286c1e59fee4e22c40354fc48"
+    }
+  ]
 }
