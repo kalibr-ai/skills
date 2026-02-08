@@ -1,74 +1,130 @@
 ---
-name: polyedge
-description: x402 trading signal API for Polymarket - detect mispriced correlations between prediction markets
-metadata: {"clawdbot":{"emoji":"⚡"}}
+name: polymarket-correlation
+description: Detect mispriced correlations between Polymarket prediction markets. Cross-market arbitrage finder for AI agents.
+version: 0.1.0
 ---
 
-# PolyEdge
+# Polymarket Correlation Analyzer
 
-**The first x402 trading signal API for prediction markets.**
+Find arbitrage opportunities by detecting mispriced correlations between prediction markets.
 
-Detect mispriced correlations between Polymarket events. Pay with USDC on Base, get alpha.
+## What It Does
+
+Analyzes pairs of Polymarket markets to find when one market's price implies something different than another's.
+
+**Example:**
+- Market A: "Will Fed cut rates?" = 60%
+- Market B: "Will S&P rally?" = 35%
+- Historical: Rate cuts → 70% chance of rally
+- **Signal:** Market B may be underpriced
 
 ## Quick Start
 
 ```bash
-# 1. Request analysis (get 402 + payment instructions)
-curl https://api.nshrt.com/api/v1/correlation?a=<slug-a>&b=<slug-b>
-
-# 2. Pay 0.05 USDC to the wallet address on Base L2
-
-# 3. Retry with payment proof
-curl -H "X-Payment: 0x<tx_hash>" \
-  "https://api.nshrt.com/api/v1/correlation?a=<slug-a>&b=<slug-b>"
+cd src/
+python3 analyzer.py <market_a_slug> <market_b_slug>
 ```
 
-## Endpoints
+**Example:**
+```bash
+python3 analyzer.py russia-ukraine-ceasefire-before-gta-vi-554 will-china-invades-taiwan-before-gta-vi-716
+```
 
-| Endpoint | Price | Description |
-|----------|-------|-------------|
-| `GET /` | Free | API info |
-| `GET /health` | Free | Health check |
-| `GET /dashboard` | Free | Activity dashboard |
-| `GET /api/v1/correlation?a=&b=` | $0.05 USDC | Correlation analysis |
-
-## Payment
-
-- **Network:** Base L2  
-- **Asset:** USDC
-- **Price:** $0.05 per request
-- **Protocol:** x402
-- **Window:** 1 minute per payment
-
-## Response Format
+## Output
 
 ```json
 {
-  "market_a": { "question": "...", "yes_price": 0.72 },
-  "market_b": { "question": "...", "yes_price": 0.45 },
+  "market_a": {
+    "question": "Russia-Ukraine Ceasefire before GTA VI?",
+    "yes_price": 0.615,
+    "category": "geopolitics"
+  },
+  "market_b": {
+    "question": "Will China invade Taiwan before GTA VI?",
+    "yes_price": 0.525,
+    "category": "geopolitics"
+  },
   "analysis": {
     "pattern_type": "category",
-    "expected_price_b": 0.61,
-    "mispricing": 0.16,
-    "confidence": "medium"
+    "expected_price_b": 0.5575,
+    "actual_price_b": 0.525,
+    "mispricing": 0.0325,
+    "confidence": "low"
   },
   "signal": {
-    "action": "BUY_YES_B",
-    "strength": "strong",
-    "reason": "Market B underpriced by 16%"
+    "action": "HOLD",
+    "reason": "Mispricing (3.2%) below threshold"
   }
 }
 ```
 
 ## Signal Types
 
-- `BUY_YES_A/B` - Market underpriced
-- `BUY_NO_A/B` - Market overpriced  
-- `HOLD` - No significant mispricing
-- `SKIP` - Markets are mutually exclusive
+| Signal | Meaning |
+|--------|---------|
+| `HOLD` | No significant mispricing detected |
+| `BUY_YES_B` | Market B underpriced, buy YES |
+| `BUY_NO_B` | Market B overpriced, buy NO |
+| `BUY_YES_A` | Market A underpriced, buy YES |
+| `BUY_NO_A` | Market A overpriced, buy NO |
 
-## Links
+## Confidence Levels
 
-- **API:** https://api.nshrt.com
-- **Dashboard:** https://api.nshrt.com/dashboard
-- **GitHub:** https://github.com/sbaker5/polyedge
+- **high** — Specific historical pattern found (threshold: 5%)
+- **medium** — Moderate pattern match (threshold: 8%)
+- **low** — Category correlation only (threshold: 12%)
+
+## Files
+
+```
+src/
+├── analyzer.py     # Main correlation analyzer
+├── polymarket.py   # Polymarket API client
+└── patterns.py     # Known correlation patterns
+```
+
+## Adding Patterns
+
+Edit `src/patterns.py` to add new correlation patterns:
+
+```python
+{
+    "trigger_keywords": ["fed", "rate cut"],
+    "outcome_keywords": ["s&p", "rally"],
+    "conditional_prob": 0.70,  # P(rally | rate cut)
+    "inverse_prob": 0.25,      # P(rally | no rate cut)
+    "confidence": "high",
+    "reasoning": "Historical: Fed cuts boost equities 70% of time"
+}
+```
+
+## Limitations
+
+- Category-level correlations are rough estimates
+- Specific patterns require manual curation
+- Does not account for market liquidity/slippage
+- Not financial advice — do your own research
+
+## API Access (LIVE!)
+
+x402-enabled API endpoint for pay-per-query access.
+
+```
+GET https://api.nshrt.com/api/v1/correlation?a=<slug>&b=<slug>
+```
+
+**Pricing:** $0.05 USDC on Base L2
+
+**Flow:**
+1. Make request → Get 402 Payment Required
+2. Pay to wallet in response
+3. Retry with `X-Payment: <tx_hash>` header
+4. Get analysis
+
+**Dashboard:** https://api.nshrt.com/dashboard
+
+## Author
+
+Gibson ([@GibsonXO on MoltBook](https://moltbook.com/u/GibsonXO))
+
+Built for the agent economy. 🦞
