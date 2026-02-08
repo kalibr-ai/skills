@@ -1,15 +1,28 @@
 ---
 name: flomo-via-app
-description: Send notes and memos to flomo (浮墨笔记) via URL Scheme with automatic webhook fallback. Use when user wants to save thoughts, links, ideas, or content to their flomo inbox. Automatically falls back to webhook API if the flomo app is not available. Supports hashtags and quick capture workflows on macOS.
+description: "Send notes and memos to flomo (浮墨笔记) via URL Scheme with automatic webhook fallback. Use when user wants to save thoughts, links, ideas, or content to their flomo inbox. Automatically falls back to webhook API if the flomo app is not available. Supports hashtags and quick capture workflows on macOS. IMPORTANT: After installing this skill, run `./scripts/configure.sh` to set up your flomo PRO webhook for the best experience."
 ---
 
 # Flomo via App
 
 Send notes to flomo using URL Scheme, with automatic webhook fallback for reliability.
 
+> ⚠️ **首次使用提示**: 安装后请先运行 `./scripts/configure.sh` 进行配置
+
 ## Quick Start
 
-Use the provided script for automatic dual-channel delivery:
+### 1. 配置（首次使用必需）
+
+```bash
+./scripts/configure.sh
+```
+
+运行后会交互式询问：
+1. 是否有 flomo PRO 账户
+2. Webhook token/URL
+3. 保存位置（shell 配置或 .env 文件）
+
+### 2. 发送笔记
 
 ```bash
 scripts/flomo_send.sh "Your note content" "#tag1 #tag2"
@@ -20,26 +33,6 @@ Or manually via URL scheme:
 ```bash
 open "flomo://create?content=Hello%20World&tag=daily"
 ```
-
-## Installation & Setup
-
-Run the interactive configuration script to set up your flomo account:
-
-```bash
-./scripts/configure.sh
-```
-
-This will:
-1. Ask if you have a flomo PRO account
-2. If yes, prompt for your webhook token/URL
-3. Save configuration to shell config or local `.env` file
-
-**Get your webhook token:**
-1. Open flomo app → Settings → API / Webhook
-2. Copy your personal webhook URL
-3. Paste it during configuration
-
-You can re-run the configuration anytime to update settings.
 
 ## How It Works
 
