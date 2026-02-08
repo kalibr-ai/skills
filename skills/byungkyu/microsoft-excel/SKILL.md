@@ -1,5 +1,5 @@
 ---
-name: microsoftexcel
+name: microsoft-excel
 description: |
   Microsoft Excel API integration with managed OAuth. Read and write Excel workbooks, worksheets, ranges, tables, and charts stored in OneDrive.
   Use this skill when users want to read or modify Excel spreadsheets, manage worksheet data, work with tables, or access cell values.
