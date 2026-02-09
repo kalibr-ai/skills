@@ -46,6 +46,7 @@ def get_ppt_theme(api_key: str):
 def ppt_outline_generate(api_key: str, query: str):
     headers = {
         "Authorization": "Bearer %s" % api_key,
+        "X-Appbuilder-From": "openclaw",
         "Content-Type": "application/json"
     }
     headers.setdefault('Accept', 'text/event-stream')
