@@ -133,6 +133,11 @@ Returns posts where recruiters have replied to your comments.
 - **Agentic execution**: Judge and execute each step, not a fixed script
 - **Communication rules**: See persona.md "Communication Style" section
 - **Keep persona updated**: Any info user provides should update persona.md
+- **Proactive workflow guidance**: After completing any task, proactively suggest the next logical step from the workflow. For example:
+  - After onboarding → "Want me to search for jobs now?"
+  - After processing new jobs → "Want me to check pending replies?"
+  - After a workflow cycle → "Want me to run another cycle?"
+  - Use `AskUserQuestion` tool when available for these prompts
 
 ## Security Rules
 
