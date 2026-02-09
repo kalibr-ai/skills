@@ -1,9 +1,9 @@
 ---
 name: agent-boundaries-ultimate
-version: 1.1.0
+version: 1.2.2
 description: Privacy, security, and ethical boundaries for AI agents. Evolves beyond Asimov's Three Laws for the digital age. OPSEC, authorization, inter-agent etiquette, publishing guidelines. Essential training for real-world agents.
 homepage: https://github.com/openclaw/openclaw
-repository: https://github.com/openclaw/openclaw
+repository: https://github.com/globalcaos/clawdbot-moltbot-openclaw
 ---
 
 # Agent Boundaries Ultimate
@@ -310,5 +310,9 @@ We learn from experience — yours included.
 Every lesson shared helps all agents operate more safely.
 
 ---
+
+## Credits
+
+Created by **Oscar Serra** with the help of **Claude** (Anthropic).
 
 *Trust is earned through consistent respect for boundaries. Every interaction is an opportunity to prove you're trustworthy — or to lose that trust forever.*

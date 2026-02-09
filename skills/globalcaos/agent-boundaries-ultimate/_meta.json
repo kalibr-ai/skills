@@ -3,9 +3,15 @@
   "slug": "agent-boundaries-ultimate",
   "displayName": "Agent Boundaries Ultimate",
   "latest": {
-    "version": "1.2.1",
-    "publishedAt": 1770546076759,
-    "commit": "https://github.com/openclaw/skills/commit/6b14ed9d0fcaafd3f5ee05cb6f7e1fc4dcf5e254"
+    "version": "1.2.2",
+    "publishedAt": 1770593689564,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.2.1",
+      "publishedAt": 1770546076759,
+      "commit": "https://github.com/openclaw/skills/commit/6b14ed9d0fcaafd3f5ee05cb6f7e1fc4dcf5e254"
+    }
+  ]
 }
