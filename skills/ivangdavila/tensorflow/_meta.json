@@ -1,0 +1,11 @@
+{
+  "owner": "ivangdavila",
+  "slug": "tensorflow",
+  "displayName": "TensorFlow",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1770682659865,
+    "commit": null
+  },
+  "history": []
+}
