@@ -42,8 +42,10 @@ import json
 import shlex
 import sys
 from datetime import datetime, timezone
+from collections import deque
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import uuid4
 
 try:
@@ -51,6 +53,8 @@ try:
     HAS_WEBSOCKETS = True
 except ImportError:
     HAS_WEBSOCKETS = False
+
+WARNED_EVENT_TYPES: deque[str] = deque(maxlen=200)
 
 
 def now_iso() -> str:
@@ -224,7 +228,7 @@ def parse_openclaw_input_line(raw: str) -> list[dict]:
 
 
 def map_openclaw_gateway_agent_event(
-    payload: dict, session_id: str, default_model: str, mode: str
+    payload: dict, session_id: str, default_model: str, mode: str, quiet_mode: bool = False
 ) -> list[dict]:
     out: list[dict] = []
     stream = first_str(payload, "stream") or ""
@@ -249,6 +253,7 @@ def map_openclaw_gateway_agent_event(
                     "type": "agent_spawn",
                     "sessionId": session_id,
                     "agentId": agent_id,
+                    "runId": run_id,
                     "model": model,
                     "workType": "coding",
                 }
@@ -258,17 +263,19 @@ def map_openclaw_gateway_agent_event(
                     {
                         "type": "query_received",
                         "sessionId": session_id,
+                        "runId": run_id,
                         "triggerSource": "human",
                         "query": maybe_text(query_text, mode),
                     }
                 )
         elif phase == "error":
-            if message_text:
+            if message_text and not quiet_mode:
                 out.append(
                     {
                         "type": "agent_reporting",
                         "sessionId": session_id,
                         "agentId": agent_id,
+                        "runId": run_id,
                         "message": maybe_text(message_text, mode),
                     }
                 )
@@ -277,6 +284,7 @@ def map_openclaw_gateway_agent_event(
                     "type": "agent_complete",
                     "sessionId": session_id,
                     "agentId": agent_id,
+                    "runId": run_id,
                 }
             )
         elif phase == "end":
@@ -285,6 +293,7 @@ def map_openclaw_gateway_agent_event(
                     "type": "agent_complete",
                     "sessionId": session_id,
                     "agentId": agent_id,
+                    "runId": run_id,
                 }
             )
         return out
@@ -297,6 +306,7 @@ def map_openclaw_gateway_agent_event(
                     "type": "task_assigned",
                     "sessionId": session_id,
                     "agentId": agent_id,
+                    "runId": run_id,
                     "workType": "coding",
                     "taskDescription": maybe_text(task_description, mode),
                     "tool": tool_name if mode == "detailed" else None,
@@ -307,6 +317,7 @@ def map_openclaw_gateway_agent_event(
                     "type": "tool_used",
                     "sessionId": session_id,
                     "agentId": agent_id,
+                    "runId": run_id,
                     "tool": tool_name,
                     "workType": "coding",
                 }
@@ -317,49 +328,54 @@ def map_openclaw_gateway_agent_event(
                     "type": "tool_used",
                     "sessionId": session_id,
                     "agentId": agent_id,
+                    "runId": run_id,
                     "tool": tool_name,
                     "workType": "coding",
                 }
             )
-            if message_text:
+            if message_text and not quiet_mode:
                 out.append(
                     {
                         "type": "agent_reporting",
                         "sessionId": session_id,
                         "agentId": agent_id,
+                        "runId": run_id,
                         "message": maybe_text(message_text, mode),
                     }
                 )
-        elif phase == "update" and message_text:
+        elif phase == "update" and message_text and not quiet_mode:
             out.append(
                 {
                     "type": "agent_reporting",
                     "sessionId": session_id,
                     "agentId": agent_id,
+                    "runId": run_id,
                     "message": maybe_text(message_text, mode),
                 }
             )
         return out
 
     if stream == "assistant":
-        if message_text:
+        if message_text and not quiet_mode:
             out.append(
                 {
                     "type": "agent_reporting",
                     "sessionId": session_id,
                     "agentId": agent_id,
+                    "runId": run_id,
                     "message": maybe_text(message_text, mode),
                 }
             )
         return out
 
     if stream == "error":
-        if message_text:
+        if message_text and not quiet_mode:
             out.append(
                 {
                     "type": "agent_reporting",
                     "sessionId": session_id,
                     "agentId": agent_id,
+                    "runId": run_id,
                     "message": maybe_text(message_text, mode),
                 }
             )
@@ -368,6 +384,7 @@ def map_openclaw_gateway_agent_event(
                 "type": "agent_complete",
                 "sessionId": session_id,
                 "agentId": agent_id,
+                "runId": run_id,
             }
         )
         return out
@@ -375,7 +392,9 @@ def map_openclaw_gateway_agent_event(
     return out
 
 
-def map_openclaw_gateway_chat_event(payload: dict, session_id: str, mode: str) -> list[dict]:
+def map_openclaw_gateway_chat_event(
+    payload: dict, session_id: str, mode: str, quiet_mode: bool = False
+) -> list[dict]:
     out: list[dict] = []
     run_id = first_str(payload, "runId", "run_id", "agentId", "agent_id")
     agent_id = run_id or session_id
@@ -390,6 +409,7 @@ def map_openclaw_gateway_chat_event(payload: dict, session_id: str, mode: str) -
             {
                 "type": "query_received",
                 "sessionId": session_id,
+                "runId": run_id,
                 "triggerSource": "human",
                 "query": maybe_text(text, mode),
             }
@@ -399,6 +419,7 @@ def map_openclaw_gateway_chat_event(payload: dict, session_id: str, mode: str) -
             {
                 "type": "query_completed",
                 "sessionId": session_id,
+                "runId": run_id,
                 "message": maybe_text(text, mode),
             }
         )
@@ -407,15 +428,17 @@ def map_openclaw_gateway_chat_event(payload: dict, session_id: str, mode: str) -
             {
                 "type": "query_completed",
                 "sessionId": session_id,
+                "runId": run_id,
                 "message": maybe_text(text or "Agent run error", mode),
             }
         )
-    elif text:
+    elif text and not quiet_mode:
         out.append(
             {
                 "type": "agent_reporting",
                 "sessionId": session_id,
                 "agentId": agent_id,
+                "runId": run_id,
                 "message": maybe_text(text, mode),
             }
         )
@@ -423,27 +446,30 @@ def map_openclaw_gateway_chat_event(payload: dict, session_id: str, mode: str) -
     return out
 
 
-def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str) -> list[dict]:
+def map_openclaw_event(
+    evt: dict, session_id: str, default_model: str, mode: str, quiet_mode: bool = False
+) -> list[dict]:
     event_name = first_str(evt, "event")
     payload = evt.get("payload")
     if event_name == "agent" and isinstance(payload, dict):
-        mapped = map_openclaw_gateway_agent_event(payload, session_id, default_model, mode)
+        mapped = map_openclaw_gateway_agent_event(payload, session_id, default_model, mode, quiet_mode)
         if mapped:
             return mapped
     if event_name == "chat" and isinstance(payload, dict):
-        mapped = map_openclaw_gateway_chat_event(payload, session_id, mode)
+        mapped = map_openclaw_gateway_chat_event(payload, session_id, mode, quiet_mode)
         if mapped:
             return mapped
     if isinstance(evt.get("stream"), str) and (
         first_str(evt, "runId", "run_id", "agentId", "agent_id", "id")
     ):
-        mapped = map_openclaw_gateway_agent_event(evt, session_id, default_model, mode)
+        mapped = map_openclaw_gateway_agent_event(evt, session_id, default_model, mode, quiet_mode)
         if mapped:
             return mapped
 
     etype = resolve_openclaw_type(evt)
     out: list[dict] = []
 
+    run_id = first_str(evt, "runId", "run_id", "trace_id")
     agent_id = first_str(evt, "agentId", "agent_id", "worker_id", "id")
     model = first_str(evt, "model", "model_name") or default_model
     work_type = first_str(evt, "workType", "work_type", "task_type")
@@ -457,6 +483,7 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
             out.append({
                 "type": "query_received",
                 "sessionId": session_id,
+                "runId": run_id,
                 "triggerSource": "heartbeat",
                 "query": maybe_text(text, mode),
             })
@@ -466,6 +493,7 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
         out.append({
             "type": "query_received",
             "sessionId": session_id,
+            "runId": run_id,
             "triggerSource": "cron",
             "query": maybe_text(text or "Cron-triggered task", mode),
         })
@@ -475,6 +503,7 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
         out.append({
             "type": "query_received",
             "sessionId": session_id,
+            "runId": run_id,
             "triggerSource": "human",
             "query": maybe_text(text, mode),
         })
@@ -485,6 +514,7 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
             "type": "agent_spawn",
             "sessionId": session_id,
             "agentId": agent_id,
+            "runId": run_id,
             "model": model,
             "workType": work_type,
             "taskDescription": maybe_text(text, mode),
@@ -496,6 +526,7 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
             "type": "task_assigned",
             "sessionId": session_id,
             "agentId": agent_id,
+            "runId": run_id,
             "workType": work_type,
             "taskDescription": maybe_text(text, mode),
             "skill": skill if mode == "detailed" else None,
@@ -508,6 +539,7 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
             "type": "tool_used",
             "sessionId": session_id,
             "agentId": agent_id,
+            "runId": run_id,
             "tool": tool or text,
             "workType": work_type,
         })
@@ -518,18 +550,21 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
             "type": "skill_used",
             "sessionId": session_id,
             "agentId": agent_id,
+            "runId": run_id,
             "skill": skill or text,
             "workType": work_type,
         })
         return out
 
     if etype in {"agent_report", "agent_reporting", "partial_result", "progress"}:
-        out.append({
-            "type": "agent_reporting",
-            "sessionId": session_id,
-            "agentId": agent_id,
-            "message": maybe_text(text, mode),
-        })
+        if not quiet_mode:
+            out.append({
+                "type": "agent_reporting",
+                "sessionId": session_id,
+                "agentId": agent_id,
+                "runId": run_id,
+                "message": maybe_text(text, mode),
+            })
         return out
 
     if etype in {"agent_complete", "agent_completed", "task_complete", "subagent_done"}:
@@ -537,6 +572,7 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
             "type": "agent_complete",
             "sessionId": session_id,
             "agentId": agent_id,
+            "runId": run_id,
         })
         return out
 
@@ -544,6 +580,7 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
         out.append({
             "type": "query_completed",
             "sessionId": session_id,
+            "runId": run_id,
             "message": maybe_text(text, mode),
         })
         return out
@@ -582,6 +619,7 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
         out.append({
             "type": "query_received",
             "sessionId": session_id,
+            "runId": run_id,
             "triggerSource": "cron",
             "query": maybe_text(text or title, mode),
         })
@@ -592,9 +630,19 @@ def map_openclaw_event(evt: dict, session_id: str, default_model: str, mode: str
         out.append({
             "type": "query_received",
             "sessionId": session_id,
+            "runId": run_id,
             "triggerSource": "human",
             "query": maybe_text(text, mode),
         })
+
+    if not out:
+        unknown_key = event_name or etype or "unknown"
+        if unknown_key not in WARNED_EVENT_TYPES:
+            WARNED_EVENT_TYPES.append(unknown_key)
+            print(
+                f"[vizclaw] unmapped OpenClaw event shape: {unknown_key}",
+                file=sys.stderr,
+            )
 
     return out
 
@@ -617,6 +665,173 @@ async def read_openclaw_ws_events(openclaw_ws: str):
                 yield parsed
 
 
+def add_room_to_hub_url(hub: str, room_code: str | None) -> str:
+    if not room_code:
+        return hub
+    parts = urlsplit(hub)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["room"] = room_code
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+class HubReporterClient:
+    def __init__(
+        self,
+        hub: str,
+        session_id: str,
+        model: str,
+        mode: str,
+        skills: list[dict] | None,
+        available_models: list[dict] | None,
+        reminders: list[dict] | None,
+        heartbeat_interval: int | None,
+    ):
+        self.hub = hub
+        self.session_id = session_id
+        self.model = model
+        self.mode = mode
+        self.skills = skills
+        self.available_models = available_models
+        self.reminders = reminders
+        self.heartbeat_interval = heartbeat_interval
+        self.ws = None
+        self.room_code: str | None = None
+        self.viewer_url: str | None = None
+        self.client_event_seq = 0
+        self.replay_buffer: deque[dict] = deque(maxlen=400)
+
+    def next_client_event_id(self) -> str:
+        self.client_event_seq += 1
+        return f"{self.session_id}:{self.client_event_seq}"
+
+    async def ensure_connected(self):
+        if self.ws is not None:
+            return
+        await self.connect(resume=bool(self.room_code))
+
+    async def connect(self, resume: bool):
+        target_hub = add_room_to_hub_url(self.hub, self.room_code if resume else None)
+        self.ws = await websockets.connect(target_hub)
+
+        if not resume:
+            start_msg = {
+                "type": "session_start",
+                "sessionId": self.session_id,
+                "model": self.model,
+                "mode": self.mode,
+                "timestamp": now_iso(),
+                "clientEventId": self.next_client_event_id(),
+            }
+            await self._send_and_wait_ack(start_msg, timeout_seconds=10)
+            if not self.room_code:
+                raise RuntimeError("Connected but room was not created")
+            print("Connected")
+            print(f"room_code={self.room_code}")
+            print(f"session_id={self.session_id}")
+            print(f"viewer_url={self.viewer_url}")
+
+            config_msg = build_config_update(
+                self.session_id,
+                self.skills,
+                self.available_models,
+                self.reminders,
+                self.heartbeat_interval,
+            )
+            if config_msg:
+                await self.send(config_msg, reliable=True, remember=True)
+                print("config_update sent")
+        else:
+            print(f"Reconnected room_code={self.room_code}")
+            await self.replay_recent()
+
+    async def close(self):
+        if self.ws is not None:
+            try:
+                await self.ws.close()
+            except Exception:
+                pass
+            self.ws = None
+
+    async def reconnect(self):
+        await self.close()
+        delay = 1.0
+        last_err: Exception | None = None
+        for _ in range(6):
+            try:
+                await self.connect(resume=True)
+                return
+            except Exception as err:  # pragma: no cover - defensive retry loop
+                last_err = err
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 8.0)
+        if last_err:
+            raise last_err
+        raise RuntimeError("Unable to reconnect to hub")
+
+    async def _consume_non_ack_message(self, msg: dict):
+        mtype = msg.get("type")
+        if mtype == "room_created":
+            self.room_code = msg.get("roomCode") or self.room_code
+            viewer = msg.get("viewerUrl")
+            if isinstance(viewer, str) and viewer.strip():
+                self.viewer_url = viewer
+            elif self.room_code:
+                self.viewer_url = f"https://vizclaw.com/room/{self.room_code}"
+        elif mtype == "error":
+            print(f"[vizclaw] hub error: {msg.get('message', 'unknown')}", file=sys.stderr)
+
+    async def _wait_for_ack(self, client_event_id: str, timeout_seconds: float):
+        if self.ws is None:
+            raise RuntimeError("WebSocket is not connected")
+        while True:
+            raw = await asyncio.wait_for(self.ws.recv(), timeout=timeout_seconds)
+            msg = json.loads(raw)
+            if (
+                isinstance(msg, dict)
+                and msg.get("type") == "ack"
+                and msg.get("clientEventId") == client_event_id
+            ):
+                return
+            if isinstance(msg, dict):
+                await self._consume_non_ack_message(msg)
+
+    async def _send_and_wait_ack(self, payload: dict, timeout_seconds: float):
+        if self.ws is None:
+            raise RuntimeError("WebSocket is not connected")
+        await self.ws.send(json.dumps(payload))
+        client_event_id = payload.get("clientEventId")
+        if isinstance(client_event_id, str) and client_event_id:
+            await self._wait_for_ack(client_event_id, timeout_seconds)
+
+    async def replay_recent(self):
+        if not self.replay_buffer:
+            return
+        cached = list(self.replay_buffer)
+        print(f"[vizclaw] replaying {len(cached)} buffered events...")
+        for payload in cached:
+            await self._send_and_wait_ack(payload, timeout_seconds=6)
+
+    async def send(self, payload: dict, reliable: bool = True, remember: bool = True):
+        data = dict(payload)
+        if reliable and not data.get("clientEventId"):
+            data["clientEventId"] = self.next_client_event_id()
+        if remember and reliable and data.get("type") != "heartbeat":
+            self.replay_buffer.append(data)
+
+        attempts = 0
+        while True:
+            attempts += 1
+            try:
+                await self.ensure_connected()
+                await self._send_and_wait_ack(data, timeout_seconds=6 if reliable else 3)
+                return
+            except Exception as err:
+                if attempts >= 5:
+                    raise err
+                print(f"[vizclaw] send failed (attempt {attempts}), reconnecting...", file=sys.stderr)
+                await self.reconnect()
+
+
 async def connect_interactive(
     hub: str,
     model: str,
@@ -628,6 +843,7 @@ async def connect_interactive(
     available_models: list[dict] | None = None,
     reminders: list[dict] | None = None,
     heartbeat_interval: int | None = None,
+    quiet_mode: bool = False,
 ):
     if not HAS_WEBSOCKETS:
         print("Error: websockets package not found. Install with: pip install websockets", file=sys.stderr)
@@ -636,271 +852,312 @@ async def connect_interactive(
     mode = normalize_mode(mode)
     print(f"VizClaw Connect: connecting to {hub}")
 
-    async with websockets.connect(hub) as ws:
-        await ws.send(json.dumps({
-            "type": "session_start",
-            "sessionId": session_id,
-            "model": model,
-            "mode": mode,
-            "timestamp": now_iso(),
-        }))
+    client = HubReporterClient(
+        hub=hub,
+        session_id=session_id,
+        model=model,
+        mode=mode,
+        skills=skills,
+        available_models=available_models,
+        reminders=reminders,
+        heartbeat_interval=heartbeat_interval,
+    )
+    await client.connect(resume=False)
 
-        resp = json.loads(await ws.recv())
-        if resp.get("type") == "room_created":
-            room_code = resp.get("roomCode")
-            viewer_url = resp.get("viewerUrl", f"https://vizclaw.com/room/{room_code}")
-            print("Connected")
-            print(f"room_code={room_code}")
-            print(f"session_id={session_id}")
-            print(f"viewer_url={viewer_url}")
+    if openclaw_jsonl:
+        print("Reading OpenClaw JSON events from stdin...")
+    elif openclaw_ws:
+        print(f"Subscribing to OpenClaw event websocket: {openclaw_ws}")
+    else:
+        print("Type 'help' for commands.")
 
-            # Send config_update if any config flags were provided
-            config_msg = build_config_update(
-                session_id, skills, available_models, reminders, heartbeat_interval,
-            )
-            if config_msg:
-                await ws.send(json.dumps(config_msg))
-                print("config_update sent")
-
-            if openclaw_jsonl:
-                print("Reading OpenClaw JSON events from stdin...")
-            elif openclaw_ws:
-                print(f"Subscribing to OpenClaw event websocket: {openclaw_ws}")
-            else:
-                print("Type 'help' for commands.")
-
-        async def send_heartbeats():
-            while True:
-                await asyncio.sleep(30)
-                await ws.send(json.dumps({
+    async def send_heartbeats():
+        while True:
+            await asyncio.sleep(30)
+            await client.send(
+                {
                     "type": "heartbeat",
                     "sessionId": session_id,
                     "timestamp": now_iso(),
-                }))
+                },
+                reliable=False,
+                remember=False,
+            )
 
-        def print_help():
-            print("Commands:")
-            print("  query <text>")
-            print("  human <text>")
-            print("  cron <text>")
-            print("  heartbeat [message]")
-            print("  spawn <agent-id> <model> [work-type]")
-            print("  task <agent-id> <work-type> <description>")
-            print("  skill <agent-id> <skill>")
-            print("  tool <agent-id> <tool>")
-            print("  report <agent-id> [message]")
-            print("  complete <agent-id>")
-            print("  done [summary]")
-            print("  mode <detailed|overview|hidden>")
-            print("  config-skills <skill1,skill2,...>")
-            print("  config-models <model1,model2,...>")
-            print("  config-reminders <json array>")
-            print("  config-heartbeat <seconds | off>")
-            print("  end")
-            print("  quit")
+    def print_help():
+        print("Commands:")
+        print("  query <text>")
+        print("  human <text>")
+        print("  cron <text>")
+        print("  heartbeat [message]")
+        print("  spawn <agent-id> <model> [work-type]")
+        print("  task <agent-id> <work-type> <description>")
+        print("  skill <agent-id> <skill>")
+        print("  tool <agent-id> <tool>")
+        print("  report <agent-id> [message]")
+        print("  complete <agent-id>")
+        print("  done [summary]")
+        print("  mode <detailed|overview|hidden>")
+        print("  config-skills <skill1,skill2,...>")
+        print("  config-models <model1,model2,...>")
+        print("  config-reminders <json array>")
+        print("  config-heartbeat <seconds | off>")
+        print("  end")
+        print("  quit")
 
-        heartbeat_task = asyncio.create_task(send_heartbeats())
+    heartbeat_task = asyncio.create_task(send_heartbeats())
 
-        try:
-            if openclaw_jsonl or openclaw_ws:
-                if openclaw_ws:
-                    event_iter = read_openclaw_ws_events(openclaw_ws)
-                else:
-                    async def _stdin_events():
-                        async for line in read_stdin_lines():
-                            for evt in parse_openclaw_input_line(line):
-                                yield evt
-                    event_iter = _stdin_events()
+    try:
+        if openclaw_jsonl or openclaw_ws:
+            if openclaw_ws:
+                event_iter = read_openclaw_ws_events(openclaw_ws)
+            else:
+                async def _stdin_events():
+                    async for line in read_stdin_lines():
+                        for evt in parse_openclaw_input_line(line):
+                            yield evt
+                event_iter = _stdin_events()
 
-                async for evt in event_iter:
-                    mapped = map_openclaw_event(evt, session_id, model, mode)
-                    for payload in mapped:
-                        payload["timestamp"] = now_iso()
-                        await ws.send(json.dumps(payload))
+            async for evt in event_iter:
+                mapped = map_openclaw_event(
+                    evt, session_id, model, mode, quiet_mode=quiet_mode
+                )
+                for payload in mapped:
+                    payload["timestamp"] = now_iso()
+                    await client.send(payload, reliable=True, remember=True)
 
-                await ws.send(json.dumps({
+            await client.send(
+                {
                     "type": "session_end",
                     "sessionId": session_id,
                     "timestamp": now_iso(),
-                }))
-                return
+                },
+                reliable=True,
+                remember=True,
+            )
+            return
 
-            async for cmd in read_stdin_lines():
-                if not cmd:
-                    continue
+        async for cmd in read_stdin_lines():
+            if not cmd:
+                continue
 
-                try:
-                    parts = shlex.split(cmd)
-                except ValueError as err:
-                    print(f"Invalid command: {err}")
-                    continue
+            try:
+                parts = shlex.split(cmd)
+            except ValueError as err:
+                print(f"Invalid command: {err}")
+                continue
 
-                action = parts[0].lower()
+            action = parts[0].lower()
 
-                if action in {"quit", "exit", "q"}:
-                    break
-                if action == "help":
-                    print_help()
-                    continue
-                if action in {"query", "human", "cron"} and len(parts) >= 2:
-                    source = "human" if action == "query" else action
-                    query = " ".join(parts[1:])
-                    await ws.send(json.dumps({
+            if action in {"quit", "exit", "q"}:
+                break
+            if action == "help":
+                print_help()
+                continue
+            if action in {"query", "human", "cron"} and len(parts) >= 2:
+                source = "human" if action == "query" else action
+                query = " ".join(parts[1:])
+                await client.send(
+                    {
                         "type": "query_received",
                         "sessionId": session_id,
                         "triggerSource": source,
                         "query": maybe_text(query, mode),
                         "timestamp": now_iso(),
-                    }))
-                    print(f"query[{source}]={query}")
-                    continue
-                if action == "heartbeat":
-                    note = " ".join(parts[1:]) if len(parts) >= 2 else None
-                    await ws.send(json.dumps({
+                    },
+                    reliable=True,
+                    remember=True,
+                )
+                print(f"query[{source}]={query}")
+                continue
+            if action == "heartbeat":
+                note = " ".join(parts[1:]) if len(parts) >= 2 else None
+                await client.send(
+                    {
                         "type": "heartbeat",
                         "sessionId": session_id,
                         "timestamp": now_iso(),
-                    }))
-                    if note:
-                        await ws.send(json.dumps({
+                    },
+                    reliable=False,
+                    remember=False,
+                )
+                if note:
+                    await client.send(
+                        {
                             "type": "query_received",
                             "sessionId": session_id,
                             "triggerSource": "heartbeat",
                             "query": maybe_text(note, mode),
                             "timestamp": now_iso(),
-                        }))
-                    print("heartbeat")
-                    continue
-                if action == "spawn" and len(parts) >= 3:
-                    payload = {
-                        "type": "agent_spawn",
-                        "sessionId": session_id,
-                        "agentId": parts[1],
-                        "model": parts[2],
-                        "timestamp": now_iso(),
-                    }
-                    if len(parts) >= 4:
-                        payload["workType"] = parts[3]
-                    await ws.send(json.dumps(payload))
-                    print(f"spawned={parts[1]}")
-                    continue
-                if action == "task" and len(parts) >= 4:
-                    agent_id = parts[1]
-                    work_type = parts[2]
-                    description = " ".join(parts[3:])
-                    await ws.send(json.dumps({
+                        },
+                        reliable=True,
+                        remember=True,
+                    )
+                print("heartbeat")
+                continue
+            if action == "spawn" and len(parts) >= 3:
+                payload = {
+                    "type": "agent_spawn",
+                    "sessionId": session_id,
+                    "agentId": parts[1],
+                    "model": parts[2],
+                    "timestamp": now_iso(),
+                }
+                if len(parts) >= 4:
+                    payload["workType"] = parts[3]
+                await client.send(payload, reliable=True, remember=True)
+                print(f"spawned={parts[1]}")
+                continue
+            if action == "task" and len(parts) >= 4:
+                agent_id = parts[1]
+                work_type = parts[2]
+                description = " ".join(parts[3:])
+                await client.send(
+                    {
                         "type": "task_assigned",
                         "sessionId": session_id,
                         "agentId": agent_id,
                         "workType": work_type,
                         "taskDescription": maybe_text(description, mode),
                         "timestamp": now_iso(),
-                    }))
-                    print(f"task={agent_id}:{work_type}")
-                    continue
-                if action == "skill" and len(parts) >= 3:
-                    await ws.send(json.dumps({
+                    },
+                    reliable=True,
+                    remember=True,
+                )
+                print(f"task={agent_id}:{work_type}")
+                continue
+            if action == "skill" and len(parts) >= 3:
+                await client.send(
+                    {
                         "type": "skill_used",
                         "sessionId": session_id,
                         "agentId": parts[1],
                         "skill": " ".join(parts[2:]) if mode == "detailed" else None,
                         "timestamp": now_iso(),
-                    }))
-                    print(f"skill={parts[1]}")
-                    continue
-                if action == "tool" and len(parts) >= 3:
-                    await ws.send(json.dumps({
+                    },
+                    reliable=True,
+                    remember=True,
+                )
+                print(f"skill={parts[1]}")
+                continue
+            if action == "tool" and len(parts) >= 3:
+                await client.send(
+                    {
                         "type": "tool_used",
                         "sessionId": session_id,
                         "agentId": parts[1],
                         "tool": " ".join(parts[2:]) if mode == "detailed" else None,
                         "timestamp": now_iso(),
-                    }))
-                    print(f"tool={parts[1]}")
-                    continue
-                if action == "report" and len(parts) >= 2:
-                    await ws.send(json.dumps({
+                    },
+                    reliable=True,
+                    remember=True,
+                )
+                print(f"tool={parts[1]}")
+                continue
+            if action == "report" and len(parts) >= 2:
+                await client.send(
+                    {
                         "type": "agent_reporting",
                         "sessionId": session_id,
                         "agentId": parts[1],
                         "message": maybe_text(" ".join(parts[2:]) if len(parts) >= 3 else None, mode),
                         "timestamp": now_iso(),
-                    }))
-                    print(f"report={parts[1]}")
-                    continue
-                if action == "complete" and len(parts) >= 2:
-                    await ws.send(json.dumps({
+                    },
+                    reliable=True,
+                    remember=True,
+                )
+                print(f"report={parts[1]}")
+                continue
+            if action == "complete" and len(parts) >= 2:
+                await client.send(
+                    {
                         "type": "agent_complete",
                         "sessionId": session_id,
                         "agentId": parts[1],
                         "timestamp": now_iso(),
-                    }))
-                    print(f"complete={parts[1]}")
-                    continue
-                if action == "done":
-                    await ws.send(json.dumps({
+                    },
+                    reliable=True,
+                    remember=True,
+                )
+                print(f"complete={parts[1]}")
+                continue
+            if action == "done":
+                await client.send(
+                    {
                         "type": "query_completed",
                         "sessionId": session_id,
                         "message": maybe_text(" ".join(parts[1:]) if len(parts) >= 2 else None, mode),
                         "timestamp": now_iso(),
-                    }))
-                    print("query_completed")
-                    continue
-                if action == "mode" and len(parts) >= 2:
-                    next_mode = normalize_mode(parts[1])
-                    mode = next_mode
-                    await ws.send(json.dumps({
+                    },
+                    reliable=True,
+                    remember=True,
+                )
+                print("query_completed")
+                continue
+            if action == "mode" and len(parts) >= 2:
+                next_mode = normalize_mode(parts[1])
+                mode = next_mode
+                await client.send(
+                    {
                         "type": "set_mode",
                         "sessionId": session_id,
                         "mode": next_mode,
                         "timestamp": now_iso(),
-                    }))
-                    print(f"mode={next_mode}")
-                    continue
-                if action == "config-skills" and len(parts) >= 2:
-                    skills_list = parse_skills(" ".join(parts[1:]))
-                    msg = build_config_update(session_id, skills=skills_list)
-                    if msg:
-                        await ws.send(json.dumps(msg))
-                        print(f"config-skills={','.join(s['name'] for s in (skills_list or []))}")
-                    continue
-                if action == "config-models" and len(parts) >= 2:
-                    models_list = parse_available_models(" ".join(parts[1:]))
-                    msg = build_config_update(session_id, available_models=models_list)
-                    if msg:
-                        await ws.send(json.dumps(msg))
-                        print(f"config-models={','.join(m['id'] for m in (models_list or []))}")
-                    continue
-                if action == "config-reminders" and len(parts) >= 2:
-                    reminders_list = parse_reminders(" ".join(parts[1:]))
-                    msg = build_config_update(session_id, reminders=reminders_list)
-                    if msg:
-                        await ws.send(json.dumps(msg))
-                        print(f"config-reminders={len(reminders_list or [])} items")
-                    else:
-                        print("Invalid JSON for reminders")
-                    continue
-                if action == "config-heartbeat" and len(parts) >= 2:
-                    val = parts[1].strip().lower()
-                    interval = 0 if val == "off" else int(val)
-                    msg = build_config_update(session_id, heartbeat_interval=interval)
-                    if msg:
-                        await ws.send(json.dumps(msg))
-                        print(f"config-heartbeat={'off' if interval == 0 else f'{interval}s'}")
-                    continue
-                if action == "end":
-                    await ws.send(json.dumps({
+                    },
+                    reliable=True,
+                    remember=True,
+                )
+                print(f"mode={next_mode}")
+                continue
+            if action == "config-skills" and len(parts) >= 2:
+                skills_list = parse_skills(" ".join(parts[1:]))
+                msg = build_config_update(session_id, skills=skills_list)
+                if msg:
+                    await client.send(msg, reliable=True, remember=True)
+                    print(f"config-skills={','.join(s['name'] for s in (skills_list or []))}")
+                continue
+            if action == "config-models" and len(parts) >= 2:
+                models_list = parse_available_models(" ".join(parts[1:]))
+                msg = build_config_update(session_id, available_models=models_list)
+                if msg:
+                    await client.send(msg, reliable=True, remember=True)
+                    print(f"config-models={','.join(m['id'] for m in (models_list or []))}")
+                continue
+            if action == "config-reminders" and len(parts) >= 2:
+                reminders_list = parse_reminders(" ".join(parts[1:]))
+                msg = build_config_update(session_id, reminders=reminders_list)
+                if msg:
+                    await client.send(msg, reliable=True, remember=True)
+                    print(f"config-reminders={len(reminders_list or [])} items")
+                else:
+                    print("Invalid JSON for reminders")
+                continue
+            if action == "config-heartbeat" and len(parts) >= 2:
+                val = parts[1].strip().lower()
+                interval = 0 if val == "off" else int(val)
+                msg = build_config_update(session_id, heartbeat_interval=interval)
+                if msg:
+                    await client.send(msg, reliable=True, remember=True)
+                    print(f"config-heartbeat={'off' if interval == 0 else f'{interval}s'}")
+                continue
+            if action == "end":
+                await client.send(
+                    {
                         "type": "session_end",
                         "sessionId": session_id,
                         "timestamp": now_iso(),
-                    }))
-                    print("session_end")
-                    break
+                    },
+                    reliable=True,
+                    remember=True,
+                )
+                print("session_end")
+                break
 
-                print(f"Unknown command: {cmd}")
-                print("Type 'help' for supported commands.")
-        finally:
-            heartbeat_task.cancel()
+            print(f"Unknown command: {cmd}")
+            print("Type 'help' for supported commands.")
+    finally:
+        heartbeat_task.cancel()
+        await client.close()
 
 
 def run_oneshot(args, session_id: str):
@@ -1048,6 +1305,7 @@ def main():
     parser.add_argument("--available-models", default=None, help="Comma-separated model names (e.g. sonnet,haiku,gpt-4o)")
     parser.add_argument("--heartbeat-interval", type=int, default=None, help="Heartbeat interval in seconds (0 to disable)")
     parser.add_argument("--reminders-json", default=None, help='JSON array of reminders, e.g. \'[{"title":"Check email","schedule":"every 30min"}]\'')
+    parser.add_argument("--quiet-mode", action="store_true", help="Suppress verbose agent report events; keep structural lifecycle/task/tool events")
 
     args = parser.parse_args()
     session_id = args.session_id or str(uuid4())
@@ -1068,6 +1326,7 @@ def main():
             available_models=parse_available_models(args.available_models),
             reminders=parse_reminders(args.reminders_json),
             heartbeat_interval=args.heartbeat_interval,
+            quiet_mode=args.quiet_mode,
         )
     )
 
