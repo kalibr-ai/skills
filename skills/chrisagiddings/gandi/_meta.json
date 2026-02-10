@@ -1,0 +1,11 @@
+{
+  "owner": "chrisagiddings",
+  "slug": "gandi",
+  "displayName": "Gandi",
+  "latest": {
+    "version": "2.1.0",
+    "publishedAt": 1770657406219,
+    "commit": null
+  },
+  "history": []
+}
