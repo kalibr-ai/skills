@@ -1,0 +1,11 @@
+{
+  "owner": "anton-abyzov",
+  "slug": "sw-k8s-manifest-generator",
+  "displayName": "K8s Manifest Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1770713753438,
+    "commit": null
+  },
+  "history": []
+}
