@@ -402,6 +402,25 @@ print(result["message"])        # "Ticket #42 created successfully."
 
 ---
 
+## Error Recovery
+
+If you receive a daemon error notification (❌ messages), follow the fix steps in the message. Each error type has a different resolution, but they all end with the same recovery call:
+
+```python
+result = client.restart_chat_tracking()
+print(result["message"])
+```
+
+**SDK Upgrade Required (426):** Update your cellcog skill and SDK to the latest version, then call `restart_chat_tracking()`.
+
+**Authentication Failed (401):** Get a new API key from https://cellcog.ai/profile?tab=api-keys, call `client.set_api_key("sk_new_key")`, then `restart_chat_tracking()`.
+
+**Payment Required (402):** Ask your human to add credits at https://cellcog.ai/profile?tab=billing, then call `restart_chat_tracking()`.
+
+`restart_chat_tracking()` starts a fresh daemon that reconciles state — chats still running resume tracking, and chats that completed during downtime deliver results immediately. No data is lost.
+
+---
+
 ## Quick Reference
 
 | Method | Purpose | Blocks? |
@@ -412,6 +431,7 @@ print(result["message"])        # "Ticket #42 created successfully."
 | `send_message()` | Continue conversation, get notified | No — returns immediately |
 | `get_history()` | Manual history inspection | Sync call |
 | `get_status()` | Quick status check | Sync call |
+| `restart_chat_tracking()` | Restart daemon after fixing errors | Sync call |
 | `create_ticket()` | Submit feedback/bugs/feature requests | Sync call |
 
 ---
