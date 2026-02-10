@@ -1,178 +1,79 @@
 ---
 name: ntopng-admin
-description: Monitor and analyze network traffic using ntopng. Use when you need to check real-time flows, identify top talkers on the network, analyze historical alerts, or troubleshoot connectivity issues. Supports ntopng 6.4 Community Edition and later.
+description: Professional network monitoring and device identification using ntopng Redis data. Designed for security auditing and diagnostic environments.
+metadata:
+  openclaw:
+    disableModelInvocation: true
+    requires:
+      bins: ["ssh", "jq"]
+      env: ["OPNSENSE_HOST", "OPNSENSE_SSH_PORT", "NTOP_INSECURE"]
 ---
 
-# ntopng Admin
+# ntopng Network Monitor (Secure Edition)
 
-> ⚠️ **DISCLAIMER**
->
-> This tool grants **HIGH PRIVILEGE** access to your network infrastructure.
-> It can view sensitive traffic, plain-text credentials, and personal data.
->
-> **By using this skill, you declare that:**
-> - You are a responsible adult
-> - You have authorization to monitor this network
-> - You understand the security risks
-> - You will use this tool ethically and legally
->
-> **The author is not responsible** for misuse, unauthorized access, or damages
-> resulting from the use of this skill.
+A powerful network auditing tool that queries ntopng data directly from Redis via a secure SSH tunnel. This skill is built for network administrators and security professionals who need high-visibility into local network traffic.
 
-Network traffic monitoring and analysis for AI agents using ntopng.
+## ⚠️ High Privilege Warning & Responsible Use
 
-## Features
+**PROCEED WITH CAUTION:** This skill performs high-privilege operations, including executing commands on your network gateway via SSH and reading internal network states. 
 
-- 📊 **Real-time Flow Analysis** - View active connections and data usage
-- 🖥️ **Host Monitoring** - Identify top bandwidth consumers
-- 🚨 **Security Alerts** - Access network-level security alerts
-- 📈 **Traffic Reporting** - Extract data for security audits
-- 🔍 **Network Discovery** - Detect new devices and anomalies
+1.  **Strict Audit Only:** Intended for Lab, Test, or controlled Audit environments. Avoid use in critical production systems unless the agent's access is strictly isolated.
+2.  **Explicit Consent:** By default, autonomous invocation is disabled. You must manually approve each query to maintain full oversight of the data being accessed.
+3.  **Security Posture:** This tool uses SSH Key Authentication. Never use plain-text passwords. Ensure your SSH keys are protected with passphrases where applicable.
+4.  **Data Sensitivity:** Be aware that this tool exposes MAC addresses, internal IPs, and connection metadata. Handle output with the same care as your network configuration files.
 
-## Installation
+## Prerequisites
 
-### Prerequisites
+*   **SSH Key Access:** Public key authentication must be configured between the OpenClaw host and the OPNsense/ntopng host.
+*   **Binaries:** `ssh` and `jq` must be available in the local environment.
+*   **Backend:** ntopng must be running with Redis persistence enabled on the target host.
 
-- ntopng 6.4+ (Community or Professional)
-- curl and jq installed
-- Valid ntopng credentials
+## Configuration
 
-### Quick Setup
+Declare these variables in your environment or agent configuration:
 
-1. Configure credentials via environment variables:
-   ```bash
-   export NTOP_URL="https://ntopng.yourdomain.com"
-   export NTOP_USER="admin"
-   export NTOP_PASS="your_password"
-   ```
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OPNSENSE_HOST` | Target gateway IP or hostname | `192.168.1.1` |
+| `OPNSENSE_SSH_PORT` | SSH service port | `50222` |
+| `NTOP_INSECURE` | Set to `true` for self-signed certificates (if applicable) | `false` |
 
-   Or create a credentials file:
-   ```bash
-   mkdir -p ~/.ntopng
-   cat > ~/.ntopng/credentials << EOF
-   NTOP_URL=https://ntopng.yourdomain.com
-   NTOP_USER=admin
-   NTOP_PASS=your_password
-   EOF
-   chmod 600 ~/.ntopng/credentials
-   ```
+## Available Commands
 
-## Usage
+The helper script `scripts/ntopng-helper.sh` provides safe, read-only data extraction:
 
-### Helper Script
-
+### 1. Network Inventory
 ```bash
-# Get active flows
-./scripts/ntopng-helper.sh flows
+./scripts/ntopng-helper.sh list [limit]
+```
+Lists detected devices with MAC, IP, total traffic volume, and last-seen timestamps.
 
-# List top hosts by bandwidth
-./scripts/ntopng-helper.sh hosts
+### 2. Device Forensics
+```bash
+./scripts/ntopng-helper.sh device-info <ip|mac>
+```
+Provides granular traffic breakdown, packet counts, and inferred device classification.
 
-# View recent security alerts
-./scripts/ntopng-helper.sh alerts
+### 3. Connection Audit
+```bash
+./scripts/ntopng-helper.sh connections <ip> [sample_size]
+```
+Extracts a sample of external domains contacted by a specific device from ntopng logs.
 
-# Check if ntopng is online
-./scripts/ntopng-helper.sh status
+### 4. Health & Statistics
+```bash
+./scripts/ntopng-helper.sh status   # Verifies the ntopng service state
+./scripts/ntopng-helper.sh stats    # Global network device counts
 ```
 
-### API Endpoints
+## Data Interpretation Guide
 
-| Endpoint | Description |
-|----------|-------------|
-| `/lua/get_flows_data.lua` | Active network flows |
-| `/lua/get_hosts_data.lua` | Bandwidth usage by host |
-| `/lua/get_alerts_data.lua` | Security alerts |
-| `/lua/index.lua` | System status |
+*   **Exfiltration Pattern:** An Upload:Download ratio higher than 5:1 on a non-server device is a high-priority anomaly.
+*   **Device Spoofing:** Unexpected MAC addresses or MACs with the `DE:AD:BE:EF` prefix (often VPN/Tunnel interfaces) should be verified.
+*   **Protocol Anomalies:** Use the `app` command to detect devices using protocols that violate your local security policy (e.g., unexpected SSH or HTTP servers).
 
-## Configuration Reference
+## Security Implementation
 
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NTOP_URL` | - | ntopng URL (required) |
-| `NTOP_USER` | `admin` | Username |
-| `NTOP_PASS` | - | Password (required) |
-| `NTOP_INSECURE` | `false` | Set to `true` to disable SSL verification |
-
-## Security Best Practices
-
-1. **SSL Certificate Validation** - Enabled by default. Use `--insecure` or `NTOP_INSECURE=true` ONLY for development or self-signed certificates in internal networks
-2. **Secure credentials** - Store passwords in environment variables or secure files (chmod 600)
-3. **Limit access** - Create dedicated monitoring user if possible
-4. **Regular audits** - Review alerts for suspicious traffic patterns
-
-### SSL/TLS Configuration
-
-By default, all connections validate SSL certificates. For production with valid certificates, no changes needed.
-
-For self-signed certificates:
-```bash
-# Option 1: Command line flag
-./scripts/ntopng-helper.sh --insecure flows
-
-# Option 2: Environment variable
-export NTOP_INSECURE=true
-./scripts/ntopng-helper.sh flows
-```
-
-## Use Cases
-
-### Network Security Audits
-- Detect unknown MAC addresses
-- Identify high-bandwidth usage from suspicious IPs
-- Monitor traffic to restricted domains
-- Find lateral movement patterns
-
-### Performance Monitoring
-- Identify bandwidth hogs
-- Monitor application-specific traffic
-- Track protocol distribution
-
-### Troubleshooting
-- Verify connectivity between hosts
-- Check DNS resolution patterns
-- Analyze dropped packets
-
-## Version Compatibility
-
-| ntopng Version | Skill Version | Status |
-|----------------|---------------|--------|
-| 6.4+ | 1.x | ✅ Supported |
-| 6.0 - 6.3 | 1.x | ⚠️ May work |
-| 5.x | 1.x | ❌ Not tested |
-
-## Troubleshooting
-
-### Authentication Issues
-```bash
-# Test connectivity
-curl -s -k https://ntopng/lua/index.lua
-
-# Check credentials
-echo "NTOP_URL: $NTOP_URL"
-echo "NTOP_USER: $NTOP_USER"
-```
-
-### No Data Returned
-- Verify ntopng is capturing traffic (check interface status)
-- Ensure proper permissions on network interface
-- Check disk space for flow storage
-
-## Reference Documentation
-
-- [API Guide](references/api-guide.md) - Complete API documentation
-- [Alerts Reference](references/alerts.md) - Alert types and meanings
-- [Integration Guide](references/integration.md) - SIEM and automation integration
-
-## License
-
-MIT - See LICENSE file for details.
-
-## Contributing
-
-Issues and pull requests welcome at the GitHub repository.
-
----
-
-**Disclaimer**: This is an unofficial skill. Not affiliated with the ntopng project or ntop.org.
+- **No Secret Leaking:** Scripts are hardened to never echo credentials or sensitive environment variables.
+- **Input Sanitization:** Arguments are filtered to prevent shell injection attempts.
+- **Secure by Default:** SSL verification is active unless explicitly overridden for lab use.
