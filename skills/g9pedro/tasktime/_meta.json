@@ -1,0 +1,11 @@
+{
+  "owner": "g9pedro",
+  "slug": "tasktime",
+  "displayName": "TaskTime CLI",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1770705632832,
+    "commit": null
+  },
+  "history": []
+}
