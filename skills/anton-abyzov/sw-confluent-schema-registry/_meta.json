@@ -1,0 +1,11 @@
+{
+  "owner": "anton-abyzov",
+  "slug": "sw-confluent-schema-registry",
+  "displayName": "Confluent Schema Registry",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1770713588818,
+    "commit": null
+  },
+  "history": []
+}
