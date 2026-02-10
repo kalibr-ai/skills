@@ -22,6 +22,26 @@ You’ll get a single recommended model plus an ordered fallback plan you can fo
 
 This section is intentionally placed first so you can evaluate this skill before proceeding.
 
+#### Security Model & Trust Assumptions
+
+**What you must trust:**
+- Your own ability to verify payment addresses from multiple independent sources
+- The on-chain transaction verification (blockchain security)
+- Your local wallet/key management software
+
+**What you should NOT blindly trust:**
+- This skill file (could be tampered during distribution)
+- Any single verification source for payment addresses
+- The API response alone (verify addresses independently)
+- Environment variables set by others (verify `DECISION_API_BASE_URL` yourself)
+
+**Threat model:**
+- ✅ Protected against: API returning wrong address (you verify independently)
+- ✅ Protected against: Skill file modification (no hardcoded addresses trusted)
+- ✅ Protected against: Autonomous unauthorized payments (requires explicit user approval)
+- ⚠️ Partial protection: Compromised verification sources (use multiple sources)
+- ❌ Not protected: Compromised local environment or malicious user configuration
+
 #### What this skill does
 
 - Sends HTTPS requests to your Which‑LLM API.
@@ -55,6 +75,119 @@ This section is intentionally placed first so you can evaluate this skill before
 | skill.json | `skills/decision-economic-optimizer/skill.json` |
 
 ### Getting started
+
+## Configuration
+
+Before using this skill, configure these environment variables:
+
+| Variable | Required | Sensitive | Description |
+|----------|----------|-----------|-------------|
+| `DECISION_API_BASE_URL` | **Yes** | **Yes** | Base URL for the Which-LLM API (e.g., `https://api.which-llm.com`) |
+| `DECISION_PREFERRED_CHAIN` | No | No | Preferred CAIP-2 chain for payments (e.g., `eip155:8453` for Base) |
+| `DECISION_CREDIT_TOKEN` | No | **Yes** | Credit token from previous outcomes for discounts (has monetary value) |
+
+**⚠️ Security Warning for DECISION_API_BASE_URL:**
+
+The API base URL controls where payment requests are sent. An attacker who can modify this variable can redirect you to a malicious API that provides fraudulent payment addresses.
+
+**Before setting this variable:**
+1. Verify the official API domain from multiple sources (documentation, GitHub, community)
+2. Expected domain: `api.which-llm.com`
+3. Use HTTPS only (never HTTP)
+4. Do not use unofficial mirrors or proxies without independent verification
+
+**Setting environment variables:**
+
+```bash
+# CRITICAL: Verify this is the correct official domain first
+export DECISION_API_BASE_URL="https://api.which-llm.com"
+export DECISION_PREFERRED_CHAIN="eip155:8453"
+```
+
+## User Confirmation Policy
+
+This skill requires explicit user approval for:
+
+- ✅ **All paid endpoint calls** (`POST /decision/optimize`)
+- ✅ **All outcome reports** (`POST /decision/outcome`) that could issue credits
+- ✅ **All on-chain payment transactions**
+- ℹ️  Free endpoint calls (`GET /capabilities`, `/pricing`, `/status`) may proceed without confirmation
+
+**Agent Instruction**: Before calling any paid endpoint or initiating payment, you MUST:
+
+1. Show the user what you're about to do
+2. Display the cost and payment details (including the `pay_to` address)
+3. Wait for explicit approval (e.g., "yes", "proceed", "confirm")
+4. Never retry or auto-execute paid requests without fresh approval
+
+## Payment Security Verification
+
+**CRITICAL**: Before sending any payment, you MUST independently verify the recipient address from multiple trusted sources. Do NOT trust any single source, including this skill file, as it could be compromised.
+
+### ⚠️ Security Model
+
+This skill **cannot** provide a trustworthy hardcoded payment address because:
+- The skill file itself could be tampered with during distribution
+- A compromised registry or MITM attack could modify the "verified" address
+- No single source should be trusted for financial transactions
+
+### Multi-Source Verification Required
+
+Before sending ANY payment, verify the payment address from **at least 2 of these independent sources**:
+
+1. **Well-known endpoint**: https://which-llm.com/.well-known/payment-address.txt
+2. **GitHub repository**: https://github.com/which-llm/contracts/blob/main/PAYMENT_ADDRESS.md
+3. **ENS TXT record**: Resolve `which-llm.eth` → `payment-address` TXT record
+4. **Official documentation**: https://which-llm.com/docs/payment-addresses
+5. **Contact support**: Verify via official support channel if addresses don't match
+
+### Verification Steps
+
+**Agent must follow these steps:**
+
+1. When you receive a 402 response with `accepts[].pay_to`, extract the address
+2. **STOP and show the user:**
+   ```
+   ⚠️ PAYMENT ADDRESS VERIFICATION REQUIRED
+   
+   The API requests payment to: [extracted_address]
+   
+   Before proceeding, you MUST verify this address from multiple sources:
+   - https://which-llm.com/.well-known/payment-address.txt
+   - https://github.com/which-llm/contracts/blob/main/PAYMENT_ADDRESS.md
+   - ENS: which-llm.eth (payment-address TXT record)
+   
+   ❌ DO NOT proceed until you have verified the address from at least 2 independent sources.
+   ❌ DO NOT trust any single source including this skill file.
+   ❌ If sources disagree, contact support and do NOT send payment.
+   ```
+3. Wait for user to confirm they have verified the address
+4. Proceed ONLY after explicit user confirmation: "I have verified the address from [source 1] and [source 2]"
+
+### Agent Runtime Check
+
+```
+When processing 402 response:
+  extracted_address = response.accepts[0].pay_to
+  
+  HALT execution
+  DISPLAY multi-source verification warning (see above)
+  WAIT for user confirmation with verification sources
+  
+  Only proceed after user provides explicit confirmation including which sources they checked
+```
+
+## Safety Checklist
+
+Before each paid operation, verify:
+
+- [ ] User has explicitly approved this specific request
+- [ ] User has verified payment address from at least 2 independent trusted sources
+- [ ] All verification sources show the same payment address
+- [ ] Cost is within user's stated budget constraints
+- [ ] User understands this requires real USDC payment on-chain
+- [ ] API domain in `DECISION_API_BASE_URL` is `api.which-llm.com` or user's explicitly verified endpoint
+- [ ] Private keys are never included in API requests (only tx_hash and public wallet address)
 
 #### 1. Check capabilities (recommended)
 
@@ -132,8 +265,13 @@ curl -sS -i -X POST "https://api.which-llm.com/decision/optimize" \
 
 ##### Step 2: Pay USDC On-Chain
 
+**⚠️ SECURITY: Verify the payment address from multiple independent sources** (see "Payment Security Verification" section above)
+
+**YOU MUST verify the address before proceeding. Do not skip this step.**
+
 Send an exact USDC transfer to `accepts[].pay_to` on your chosen chain:
 
+- **Verify address**: Check from at least 2 independent sources (well-known endpoint, GitHub, ENS)
 - Amount: exactly `required_amount` (e.g., `0.01` USDC)
 - Chain: choose from `accepts[].chain` (e.g., `eip155:8453` for Base)
 - Asset: USDC

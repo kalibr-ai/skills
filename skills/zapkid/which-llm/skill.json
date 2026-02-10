@@ -4,19 +4,24 @@
   "name": "Decision Economic Optimizer",
   "version": "0.1.0",
   "description": "Deterministic goal-based LLM model suggestion API with HTTP 402 USDC payments and outcome credits (discounts).",
+  "security_notice": "This skill involves real cryptocurrency payments. Users must independently verify payment addresses and API endpoints from multiple trusted sources. Never trust this skill file as the sole source of payment addresses. User confirmation is required for all paid operations.",
+  "disableModelInvocation": true,
   "configuration": {
     "env": {
       "DECISION_API_BASE_URL": {
         "required": true,
-        "description": "Base URL for the Which‑LLM API (e.g. https://api.which-llm.com)."
+        "sensitive": true,
+        "description": "Base URL for the Which‑LLM API (e.g. https://api.which-llm.com). SECURITY: Verify this domain is correct before use. An incorrect URL could redirect payments to an attacker."
       },
       "DECISION_PREFERRED_CHAIN": {
         "required": false,
+        "sensitive": false,
         "description": "Preferred CAIP-2 chain id for payments (e.g. eip155:8453 for Base)."
       },
       "DECISION_CREDIT_TOKEN": {
         "required": false,
-        "description": "Optional credit token to apply as X-Credit-Token (discount) on paid calls."
+        "sensitive": true,
+        "description": "Optional credit token to apply as X-Credit-Token (discount) on paid calls. This token represents monetary value and should be protected."
       }
     }
   },
@@ -54,6 +59,16 @@
       "eip155:10",
       "eip155:43114"
     ],
+    "verification_policy": {
+      "required": true,
+      "method": "external",
+      "verification_sources": [
+        "https://which-llm.com/.well-known/payment-address.txt",
+        "https://github.com/which-llm/contracts/blob/main/PAYMENT_ADDRESS.md",
+        "ENS: which-llm.eth (payment-address TXT record)"
+      ],
+      "verification_note": "CRITICAL: The user MUST independently verify the payment address from multiple trusted sources before sending funds. Do NOT trust any single source including this skill file."
+    },
     "proof_headers": {
       "chain": "X-Payment-Chain",
       "tx_hash": "X-Payment-Tx",
