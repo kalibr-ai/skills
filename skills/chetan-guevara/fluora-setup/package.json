@@ -1,0 +1,41 @@
+{
+  "name": "fluora-setup",
+  "version": "1.0.0",
+  "description": "Interactive setup wizard for Fluora marketplace integration with OpenClaw",
+  "type": "module",
+  "main": "setup.js",
+  "bin": {
+    "fluora-setup": "./setup.js"
+  },
+  "scripts": {
+    "setup": "node setup.js"
+  },
+  "keywords": [
+    "fluora",
+    "setup",
+    "onboarding",
+    "openclaw",
+    "wallet",
+    "mcporter",
+    "mcp",
+    "marketplace",
+    "usdc",
+    "base"
+  ],
+  "author": "Fluora Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fluora/fluora-setup"
+  },
+  "bugs": {
+    "url": "https://github.com/fluora/fluora-setup/issues"
+  },
+  "homepage": "https://fluora.ai",
+  "dependencies": {
+    "ethers": "^6.15.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "fluora-registry": {
+      "command": "npx",
+      "args": [
+        "fluora-mcp"
+      ],
+      "env": {
+        "ENABLE_REQUEST_ELICITATION": "true",
+        "ELICITATION_THRESHOLD": "0.01"
+      }
+    }
+  }
+}
