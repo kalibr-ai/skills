@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 // Try to load .env from cwd or project root, but don't crash if missing (Env vars might be injected)
-require('dotenv').config(); 
+require('dotenv').config({ quiet: true }); 
 
 const APP_ID = process.env.FEISHU_APP_ID;
 const APP_SECRET = process.env.FEISHU_APP_SECRET;

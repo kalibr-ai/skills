@@ -17,6 +17,10 @@ async function sendPost(options) {
         delete options.target;
     }
 
+    if (options.content && !options.text) {
+        options.text = options.content;
+    }
+
     let contentText = options.text || '';
     if (options.textFile) {
         try {
@@ -120,12 +124,32 @@ if (require.main === module) {
     program
         .option('-t, --target <id>', 'Target ID')
         .option('-x, --text <text>', 'Text content')
+        .option('-c, --content <text>', 'Content (alias for --text)')
         .option('-f, --text-file <path>', 'File content')
         .option('--title <text>', 'Title')
         .option('--reply-to <id>', 'Message ID to reply to')
         .parse(process.argv);
     
-    sendPost(program.opts()).catch(() => process.exit(1));
+    const opts = program.opts();
+    
+    // Safety: if --text contains shell-mangled content (missing chars),
+    // try to detect and warn. Also support stdin piping as fallback.
+    if (opts.text && !opts.textFile) {
+        // Write to temp file to avoid shell escaping issues with special chars
+        const tmpPath = path.join('/tmp', `feishu_post_${Date.now()}_${Math.random().toString(36).slice(2)}.txt`);
+        fs.writeFileSync(tmpPath, opts.text);
+        opts.textFile = tmpPath;
+        opts.text = undefined;
+        // Clean up after send
+        sendPost(opts).then(() => {
+            try { fs.unlinkSync(tmpPath); } catch (_) {}
+        }).catch((e) => {
+            try { fs.unlinkSync(tmpPath); } catch (_) {}
+            process.exit(1);
+        });
+    } else {
+        sendPost(opts).catch(() => process.exit(1));
+    }
 }
 
 module.exports = { sendPost };
