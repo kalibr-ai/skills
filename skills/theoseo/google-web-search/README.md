@@ -65,6 +65,35 @@ This skill uses Gemini's **grounding with Google Search** tool, which:
 - `google-genai` ≥ 1.50.0
 - `pydantic-settings` ≥ 2.0.0
 
+## Installation
+
+The skill auto-installs Python dependencies using one of:
+
+1. **[uv](https://github.com/astral-sh/uv)** (if available) - A fast Python package manager by Astral (creators of Ruff)
+2. **pip** (fallback) - Standard Python package installer
+
+```bash
+# The install command checks for uv first, falls back to pip:
+# command -v uv >/dev/null && uv sync || pip install -r requirements.txt
+```
+
+To install manually:
+```bash
+cd skills/google-web-search
+pip install -r requirements.txt
+```
+
+## Credentials
+
+This skill requires **one** environment variable:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_API_KEY` | ✅ Yes | Your Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `GEMINI_MODEL` | ❌ No | Model to use (default: `gemini-2.5-flash-lite`) |
+
+**Security tip:** Create a restricted API key with minimal permissions (only Gemini API access needed).
+
 ## License
 
 Same as OpenClaw project
