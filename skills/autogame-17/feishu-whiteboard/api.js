@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 // Unified Token Cache (Shared with feishu-doc, feishu-card, etc.)
 const TOKEN_CACHE_FILE = path.resolve(__dirname, '../../memory/feishu_token.json');
