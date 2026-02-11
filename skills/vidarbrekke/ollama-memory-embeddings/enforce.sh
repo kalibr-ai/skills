@@ -2,6 +2,20 @@
 # Enforce OpenClaw memorySearch to use Ollama embeddings settings.
 # Idempotent: safe to run repeatedly.
 set -euo pipefail
+IFS=$'\n\t'
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMMON_SH="${SCRIPT_DIR}/lib/common.sh"
+CONFIG_CLI="${SCRIPT_DIR}/lib/config.js"
+if [ ! -f "${COMMON_SH}" ]; then
+  echo "[ERROR] Missing shared helper: ${COMMON_SH}" >&2
+  exit 1
+fi
+if [ ! -f "${CONFIG_CLI}" ]; then
+  echo "[ERROR] Missing config helper: ${CONFIG_CLI}" >&2
+  exit 1
+fi
+source "${COMMON_SH}"
 
 MODEL=""
 BASE_URL="http://127.0.0.1:11434/v1/"
@@ -10,6 +24,10 @@ CHECK_ONLY=0
 QUIET=0
 RESTART_ON_CHANGE=0
 API_KEY_VALUE="ollama"
+LOCK_TIMEOUT_SEC="${OPENCLAW_LOCK_TIMEOUT_SEC:-30}"
+LOCK_STALE_SEC="${OPENCLAW_LOCK_STALE_SEC:-600}"
+LOCK_DIR=""
+LOCK_HELD=0
 
 usage() {
   cat <<'EOF'
@@ -47,45 +65,17 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-log() {
-  [ "$QUIET" -eq 1 ] || echo "$@"
-}
-
-normalize_model() {
-  local m="$1"
-  if [[ "$m" != *:* ]]; then
-    echo "${m}:latest"
-  else
-    echo "$m"
-  fi
-}
-
-normalize_base_url() {
-  local u="${1%/}"
-  if [[ "$u" != */v1 ]]; then
-    u="${u}/v1"
-  fi
-  echo "${u}/"
-}
-
 restart_gateway() {
   if ! command -v openclaw >/dev/null 2>&1; then
-    log "NOTE: openclaw CLI not found; skip restart."
+    log_info "openclaw CLI not found; skip restart."
     return 0
   fi
   if openclaw gateway restart 2>/dev/null; then
-    log "Gateway restarted."
+    log_info "Gateway restarted."
     return 0
   fi
-  log "WARNING: openclaw gateway restart failed; restart manually."
+  log_warn "openclaw gateway restart failed; restart manually."
   return 1
-}
-
-require_cmd() {
-  command -v "$1" >/dev/null 2>&1 || {
-    echo "ERROR: '$1' not found in PATH."
-    exit 1
-  }
 }
 
 require_cmd node
@@ -95,44 +85,58 @@ mkdir -p "$(dirname "$CONFIG_PATH")"
 
 BASE_URL_NORM="$(normalize_base_url "$BASE_URL")"
 
+release_lock() {
+  if [ "${LOCK_HELD}" -eq 1 ] && [ -n "${LOCK_DIR}" ] && [ -d "${LOCK_DIR}" ]; then
+    rm -rf "${LOCK_DIR}" || true
+  fi
+  LOCK_HELD=0
+}
+trap release_lock EXIT INT TERM
+
+acquire_lock() {
+  LOCK_DIR="${CONFIG_PATH}.lock"
+  local start_epoch now_epoch waited lock_started lock_pid lock_age
+  start_epoch="$(date +%s)"
+  while ! mkdir "${LOCK_DIR}" 2>/dev/null; do
+    now_epoch="$(date +%s)"
+    waited=$((now_epoch - start_epoch))
+    if [ "${waited}" -ge "${LOCK_TIMEOUT_SEC}" ]; then
+      log_err "Timed out waiting for lock: ${LOCK_DIR} (waited ${LOCK_TIMEOUT_SEC}s)"
+      return 1
+    fi
+
+    lock_started=""
+    lock_pid=""
+    if [ -f "${LOCK_DIR}/meta" ]; then
+      lock_started="$(awk -F= '/^started_epoch=/{print $2}' "${LOCK_DIR}/meta" 2>/dev/null || true)"
+      lock_pid="$(awk -F= '/^pid=/{print $2}' "${LOCK_DIR}/meta" 2>/dev/null || true)"
+    fi
+    lock_age=0
+    if [ -n "${lock_started}" ] 2>/dev/null; then
+      lock_age=$((now_epoch - lock_started))
+    fi
+
+    # Stale lock recovery: timed out lock or dead PID.
+    if [ "${lock_age}" -ge "${LOCK_STALE_SEC}" ] || { [ -n "${lock_pid}" ] && ! kill -0 "${lock_pid}" 2>/dev/null; }; then
+      log_warn "Recovering stale lock at ${LOCK_DIR}"
+      rm -rf "${LOCK_DIR}" || true
+      continue
+    fi
+    sleep 1
+  done
+
+  {
+    printf 'pid=%s\n' "$$"
+    printf 'started_epoch=%s\n' "$(date +%s)"
+    printf 'started_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'host=%s\n' "$(hostname 2>/dev/null || echo unknown)"
+  } > "${LOCK_DIR}/meta"
+  LOCK_HELD=1
+}
+
 # If model omitted, try current config model; otherwise enforce requires explicit model.
 if [ -z "$MODEL" ]; then
-  MODEL="$(node -e '
-const fs=require("fs");
-const p=process.argv[1];
-const CANDIDATES = [
-  { label: "agents.defaults.memorySearch", path: ["agents", "defaults", "memorySearch"] },
-  { label: "memorySearch", path: ["memorySearch"] },
-  { label: "agents.memorySearch", path: ["agents", "memorySearch"] },
-  { label: "agents.defaults.memory.search", path: ["agents", "defaults", "memory", "search"] },
-  { label: "memory.search", path: ["memory", "search"] },
-];
-function getAt(obj, path) {
-  let cur = obj;
-  for (const k of path) {
-    if (!cur || typeof cur !== "object" || !(k in cur)) return undefined;
-    cur = cur[k];
-  }
-  return cur;
-}
-function resolveActive(cfg) {
-  const canonical = CANDIDATES[0];
-  const canonicalVal = getAt(cfg, canonical.path);
-  if (canonicalVal && typeof canonicalVal === "object" && !Array.isArray(canonicalVal)) return canonical;
-  for (const c of CANDIDATES.slice(1)) {
-    const v = getAt(cfg, c.path);
-    if (v && typeof v === "object" && !Array.isArray(v)) return c;
-  }
-  return canonical;
-}
-try {
-  const cfg=JSON.parse(fs.readFileSync(p,"utf8"));
-  const active = resolveActive(cfg);
-  const ms = getAt(cfg, active.path) || {};
-  const m=ms.model||"";
-  process.stdout.write(m);
-} catch (_) {}
-' "$CONFIG_PATH")"
+  MODEL="$(node "${CONFIG_CLI}" resolve-model "$CONFIG_PATH")"
 fi
 
 if [ -z "$MODEL" ]; then
@@ -148,134 +152,32 @@ fi
 export CONFIG_PATH MODEL_NORM BASE_URL_NORM API_KEY_VALUE
 if [ "$CHECK_ONLY" -eq 1 ]; then
   set +e
-  node <<'EOF'
-const fs = require("fs");
-const p = process.env.CONFIG_PATH;
-const model = process.env.MODEL_NORM;
-const base = process.env.BASE_URL_NORM;
-const CANDIDATES = [
-  { label: "agents.defaults.memorySearch", path: ["agents", "defaults", "memorySearch"] },
-  { label: "memorySearch", path: ["memorySearch"] },
-  { label: "agents.memorySearch", path: ["agents", "memorySearch"] },
-  { label: "agents.defaults.memory.search", path: ["agents", "defaults", "memory", "search"] },
-  { label: "memory.search", path: ["memory", "search"] },
-];
-function getAt(obj, path) {
-  let cur = obj;
-  for (const k of path) {
-    if (!cur || typeof cur !== "object" || !(k in cur)) return undefined;
-    cur = cur[k];
-  }
-  return cur;
-}
-function resolveActive(cfg) {
-  const canonical = CANDIDATES[0];
-  const canonicalVal = getAt(cfg, canonical.path);
-  if (canonicalVal && typeof canonicalVal === "object" && !Array.isArray(canonicalVal)) return canonical;
-  for (const c of CANDIDATES.slice(1)) {
-    const v = getAt(cfg, c.path);
-    if (v && typeof v === "object" && !Array.isArray(v)) return c;
-  }
-  return canonical;
-}
-let cfg = {};
-try { cfg = JSON.parse(fs.readFileSync(p, "utf8")); } catch { process.exit(10); }
-const active = resolveActive(cfg);
-const ms = getAt(cfg, active.path) || {};
-const apiKey = ms?.remote?.apiKey || "";
-const drift =
-  ms.provider !== "openai" ||
-  (ms.model || "") !== model ||
-  (ms?.remote?.baseUrl || "") !== base ||
-  apiKey === "";
-process.exit(drift ? 10 : 0);
-EOF
+  node "${CONFIG_CLI}" check-drift "${CONFIG_PATH}" "${MODEL_NORM}" "${BASE_URL_NORM}"
   status=$?
   set -e
   if [ "$status" -eq 0 ]; then
-    log "No drift detected."
+    log_info "No drift detected."
     exit 0
   elif [ "$status" -eq 10 ]; then
-    log "Drift detected."
+    log_info "Drift detected."
     exit 10
   else
-    echo "ERROR: drift check failed."
+    log_err "drift check failed."
     exit 1
   fi
 fi
 
+if ! acquire_lock; then
+  exit 1
+fi
+
 set +e
-PLAN_OUT="$(node <<'EOF'
-const fs = require("fs");
-const path = process.env.CONFIG_PATH;
-const model = process.env.MODEL_NORM;
-const base = process.env.BASE_URL_NORM;
-const desiredApiKey = process.env.API_KEY_VALUE;
-const CANDIDATES = [
-  { label: "agents.defaults.memorySearch", path: ["agents", "defaults", "memorySearch"] },
-  { label: "memorySearch", path: ["memorySearch"] },
-  { label: "agents.memorySearch", path: ["agents", "memorySearch"] },
-  { label: "agents.defaults.memory.search", path: ["agents", "defaults", "memory", "search"] },
-  { label: "memory.search", path: ["memory", "search"] },
-];
-function getAt(obj, path) {
-  let cur = obj;
-  for (const k of path) {
-    if (!cur || typeof cur !== "object" || !(k in cur)) return undefined;
-    cur = cur[k];
-  }
-  return cur;
-}
-function ensureAt(obj, path) {
-  let cur = obj;
-  for (const k of path) {
-    if (!cur[k] || typeof cur[k] !== "object" || Array.isArray(cur[k])) cur[k] = {};
-    cur = cur[k];
-  }
-  return cur;
-}
-function resolveActive(cfg) {
-  const canonical = CANDIDATES[0];
-  const canonicalVal = getAt(cfg, canonical.path);
-  if (canonicalVal && typeof canonicalVal === "object" && !Array.isArray(canonicalVal)) return canonical;
-  for (const c of CANDIDATES.slice(1)) {
-    const v = getAt(cfg, c.path);
-    if (v && typeof v === "object" && !Array.isArray(v)) return c;
-  }
-  return canonical;
-}
-let cfg = {};
-try { cfg = JSON.parse(fs.readFileSync(path, "utf8")); } catch (_) { cfg = {}; }
-const before = JSON.stringify(cfg);
-const canonical = CANDIDATES[0];
-const active = resolveActive(cfg);
-const targets = [canonical];
-if (active.label !== canonical.label) targets.push(active);
-for (const t of targets) {
-  const ms = ensureAt(cfg, t.path);
-  ms.provider = "openai";
-  ms.model = model;
-  ms.remote = ms.remote || {};
-  ms.remote.baseUrl = base;
-  // Preserve existing non-empty apiKey to avoid false drift with custom conventions.
-  if (!ms.remote.apiKey) ms.remote.apiKey = desiredApiKey;
-}
-const afterObj = getAt(cfg, canonical.path) || {};
-const changed = before !== JSON.stringify(cfg);
-console.log(changed ? "changed" : "unchanged");
-console.log(afterObj.provider || "");
-console.log(afterObj.model || "");
-console.log((afterObj.remote && afterObj.remote.baseUrl) || "");
-console.log((afterObj.remote && afterObj.remote.apiKey) ? "(set)" : "(missing)");
-console.log(active.label);
-console.log(active.label !== canonical.label ? "yes" : "no");
-EOF
-)"
+PLAN_OUT="$(node "${CONFIG_CLI}" plan-enforce "${CONFIG_PATH}" "${MODEL_NORM}" "${BASE_URL_NORM}" "${API_KEY_VALUE}")"
 status=$?
 set -e
 
 if [ "$status" -ne 0 ]; then
-  echo "ERROR: failed to plan memorySearch enforcement."
+  log_err "failed to plan memorySearch enforcement."
   exit 1
 fi
 
@@ -290,83 +192,29 @@ MIRRORING_LEGACY="$(printf "%s\n" "$PLAN_OUT" | sed -n '7p')"
 if [ "$CHANGED" = "changed" ]; then
   BACKUP_PATH="${CONFIG_PATH}.bak.$(date -u +%Y-%m-%dT%H-%M-%SZ)"
   cp "$CONFIG_PATH" "$BACKUP_PATH"
-  node <<'EOF'
-const fs = require("fs");
-const path = process.env.CONFIG_PATH;
-const model = process.env.MODEL_NORM;
-const base = process.env.BASE_URL_NORM;
-const desiredApiKey = process.env.API_KEY_VALUE;
-const CANDIDATES = [
-  { label: "agents.defaults.memorySearch", path: ["agents", "defaults", "memorySearch"] },
-  { label: "memorySearch", path: ["memorySearch"] },
-  { label: "agents.memorySearch", path: ["agents", "memorySearch"] },
-  { label: "agents.defaults.memory.search", path: ["agents", "defaults", "memory", "search"] },
-  { label: "memory.search", path: ["memory", "search"] },
-];
-function getAt(obj, path) {
-  let cur = obj;
-  for (const k of path) {
-    if (!cur || typeof cur !== "object" || !(k in cur)) return undefined;
-    cur = cur[k];
-  }
-  return cur;
-}
-function ensureAt(obj, path) {
-  let cur = obj;
-  for (const k of path) {
-    if (!cur[k] || typeof cur[k] !== "object" || Array.isArray(cur[k])) cur[k] = {};
-    cur = cur[k];
-  }
-  return cur;
-}
-function resolveActive(cfg) {
-  const canonical = CANDIDATES[0];
-  const canonicalVal = getAt(cfg, canonical.path);
-  if (canonicalVal && typeof canonicalVal === "object" && !Array.isArray(canonicalVal)) return canonical;
-  for (const c of CANDIDATES.slice(1)) {
-    const v = getAt(cfg, c.path);
-    if (v && typeof v === "object" && !Array.isArray(v)) return c;
-  }
-  return canonical;
-}
-let cfg = {};
-try { cfg = JSON.parse(fs.readFileSync(path, "utf8")); } catch (_) { cfg = {}; }
-const canonical = CANDIDATES[0];
-const active = resolveActive(cfg);
-const targets = [canonical];
-if (active.label !== canonical.label) targets.push(active);
-for (const t of targets) {
-  const ms = ensureAt(cfg, t.path);
-  ms.provider = "openai";
-  ms.model = model;
-  ms.remote = ms.remote || {};
-  ms.remote.baseUrl = base;
-  if (!ms.remote.apiKey) ms.remote.apiKey = desiredApiKey;
-}
-fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
-EOF
+  node "${CONFIG_CLI}" apply-enforce "${CONFIG_PATH}" "${MODEL_NORM}" "${BASE_URL_NORM}" "${API_KEY_VALUE}"
 fi
 
-log "Config: ${CONFIG_PATH}"
+log_info "Config: ${CONFIG_PATH}"
 if [ "$CHANGED" = "changed" ]; then
-  log "Backup: ${BACKUP_PATH}"
+  log_info "Backup: ${BACKUP_PATH}"
 fi
-log "provider=${PROVIDER_NOW}"
-log "model=${MODEL_NOW}"
-log "baseUrl=${BASE_NOW}"
-log "apiKey=${APIKEY_NOW}"
+log_info "provider=${PROVIDER_NOW}"
+log_info "model=${MODEL_NOW}"
+log_info "baseUrl=${BASE_NOW}"
+log_info "apiKey=${APIKEY_NOW}"
 if [ -n "$ACTIVE_PATH" ] && [ "$ACTIVE_PATH" != "agents.defaults.memorySearch" ]; then
-  log "legacyPathDetected=${ACTIVE_PATH}"
+  log_info "legacyPathDetected=${ACTIVE_PATH}"
 fi
 if [ "$MIRRORING_LEGACY" = "yes" ]; then
-  log "legacyMirrored=yes"
+  log_info "legacyMirrored=yes"
 fi
 
 if [ "$CHANGED" = "changed" ]; then
-  log "Drift healed: memorySearch settings updated."
+  log_info "Drift healed: memorySearch settings updated."
   if [ "$RESTART_ON_CHANGE" -eq 1 ]; then
     restart_gateway || true
   fi
 else
-  log "No changes required."
+  log_info "No changes required."
 fi

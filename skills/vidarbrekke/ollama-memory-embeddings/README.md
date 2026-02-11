@@ -25,6 +25,8 @@ This skill is available on [GitHub](https://github.com/vidarbrekke/OpenClaw-Olla
 - Optional memory reindex during install (`--reindex-memory auto|yes|no`)
 - Idempotent drift enforcement (`enforce.sh`)
 - Optional auto-heal watchdog (`watchdog.sh`, launchd on macOS)
+- Read-only audit report (`audit.sh`) — JSON or text, no config changes
+- Optional structured logging (`LOG_FORMAT=json` for ndjson to stderr)
 
 ## Install
 
@@ -43,10 +45,10 @@ bash ~/.openclaw/skills/ollama-memory-embeddings/install.sh \
   --watchdog-interval 60
 ```
 
-From repo:
+From repo (run from project root):
 
 ```bash
-bash skills/ollama-memory-embeddings/install.sh
+bash dist/install.sh
 ```
 
 ## Non-interactive example
@@ -95,6 +97,18 @@ Remove launchd watchdog:
 ~/.openclaw/skills/ollama-memory-embeddings/watchdog.sh --uninstall-launchd
 ```
 
+## Audit (read-only)
+
+Report commands, config drift, and recommended actions without changing anything:
+
+```bash
+~/.openclaw/skills/ollama-memory-embeddings/audit.sh
+```
+
+- **JSON** (default): one object to stdout (schema version 1.0.0; see project repo for full contract).
+- **Text**: set `AUDIT_OUTPUT=text` for a human-readable summary.
+- **Desired state**: set `AUDIT_MODEL` and `AUDIT_BASE_URL` to compare against specific values; exit 0 only when status is `ok`.
+
 ## Important: re-embed when changing model
 
 If you switch embedding model, existing vectors may be incompatible with the new
@@ -107,6 +121,7 @@ Installer behavior:
 - `--reindex-memory no`: never reindex automatically.
 
 Notes:
+- **Logging**: set `LOG_FORMAT=json` to emit one JSON log line per message (ndjson) to stderr: `{"ts":"...","level":"INFO|WARN|ERROR","msg":"..."}` for CI/automation.
 - `enforce.sh --check-only` treats apiKey drift as **missing apiKey** (empty), not strict equality to `"ollama"`.
 - Backups are created only when config changes are actually written.
 - Legacy config fallback supported: if canonical `agents.defaults.memorySearch` is missing,
