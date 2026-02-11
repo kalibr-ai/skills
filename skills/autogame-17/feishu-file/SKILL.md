@@ -10,6 +10,12 @@ Upload a local file and send it to a chat or user.
 node skills/feishu-file/send.js --target <chat_id_or_user_id> --file <local_path>
 ```
 
+### Upload Only
+Upload a file and get its `file_key` (for use in cards or rich text).
+```bash
+node skills/feishu-file/upload.js --file <local_path>
+```
+
 ### Download File
 Download a file resource from a message.
 ```bash

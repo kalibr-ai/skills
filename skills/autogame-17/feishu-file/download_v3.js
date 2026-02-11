@@ -51,6 +51,7 @@ if (require.main === module) {
         .argument('<file_key>', 'File Key')
         .argument('<output_path>', 'Output Path')
         .argument('<message_id>', 'Message ID')
+        .option('--content <text>', 'Ignored alias for compatibility')
         .action(async (fileKey, output, msgId) => {
             try {
                 await downloadFile(fileKey, output, msgId);
