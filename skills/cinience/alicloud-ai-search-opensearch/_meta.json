@@ -1,0 +1,11 @@
+{
+  "owner": "cinience",
+  "slug": "alicloud-ai-search-opensearch",
+  "displayName": "Alicloud Ai Search Opensearch",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1770768447575,
+    "commit": null
+  },
+  "history": []
+}
