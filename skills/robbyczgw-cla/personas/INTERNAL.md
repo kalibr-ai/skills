@@ -11,7 +11,7 @@ This document explains the technical architecture, implementation details, and m
 ### Design Philosophy
 
 **Problem:** Users need specialized AI responses for different domains (coding, writing, health, etc.) without:
-- Loading 31 personalities into context simultaneously (token waste)
+- Loading 20 personalities into context simultaneously (token waste)
 - Manually crafting expert prompts every conversation
 - Maintaining separate chat sessions for each expert type
 
@@ -31,7 +31,9 @@ personas/
 ├── SKILL.md           # OpenClaw skill instructions (loaded on invocation)
 ├── skill.json         # Metadata, index, and feature list
 ├── INTERNAL.md        # This file (developer documentation)
-└── data/              # Persona definitions (31 default + custom)
+├── scripts/
+│   └── persona.py     # Python CLI handler (v2.2.0+)
+└── data/              # Persona definitions (20 default)
     ├── cami.md
     ├── chameleon-agent.md
     ├── dev.md
@@ -406,17 +408,9 @@ At 100 custom personas: ~425KB total (still tiny).
 
 ## Security & Safety
 
-### Prompt Injection Risks
+### Persona File Safety
 
-**Threat:** Malicious persona file could inject harmful instructions.
-
-**Mitigations:**
-- Personas are local files (user controls data/)
-- No remote persona loading
-- File permissions: user-writable only
-- OpenClaw sandboxing prevents system-level harm
-
-**Low risk** - user shoots own foot if editing files maliciously.
+All persona files are local, read-only markdown — the skill never fetches or downloads personas from the network. The 20 bundled personas are curated and reviewed. OpenClaw's sandbox mode can further restrict what persona prompts are allowed to do.
 
 ### Sensitive Information
 
