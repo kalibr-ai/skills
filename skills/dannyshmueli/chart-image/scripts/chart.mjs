@@ -29,6 +29,86 @@ import * as vegaLite from 'vega-lite';
 import sharp from 'sharp';
 import { writeFileSync, readFileSync } from 'fs';
 
+// Show help
+function showHelp() {
+  console.log(`
+chart.mjs - Generate chart images from data using Vega-Lite
+
+USAGE:
+  node chart.mjs --type line --data '[{"x":"A","y":10}]' --output chart.png
+  node chart.mjs --type bar --data '[...]' --title "Sales" --dark
+  cat data.json | node chart.mjs --type area --output out.png
+
+CHART TYPES:
+  line          Line chart (default)
+  bar           Vertical bar chart
+  area          Area chart with fill
+  point         Scatter plot
+  pie           Pie chart (use --category-field, --y-field)
+  donut         Donut chart (pie with hole)
+  candlestick   OHLC candlestick (use --open/high/low/close-field)
+  heatmap       Heatmap grid (use --color-value-field)
+
+BASIC OPTIONS:
+  --data        JSON array of data points (required unless piping)
+  --output      Output file path (default: chart.png)
+  --title       Chart title
+  --subtitle    Chart subtitle
+  --width       Chart width in pixels (default: 600)
+  --height      Chart height in pixels (default: 300)
+  --dark        Dark mode (night-friendly colors)
+  --svg         Output SVG instead of PNG
+
+DATA FIELDS:
+  --x-field     X axis field name (default: x)
+  --y-field     Y axis field name (default: y)
+  --x-title     X axis label
+  --y-title     Y axis label
+  --x-type      X axis type: ordinal, temporal, quantitative
+
+STYLING:
+  --color       Primary color (default: #e63946)
+  --y-domain    Y axis range as "min,max" (e.g., "0,100")
+  --y-format    Y axis format: percent, dollar, compact, integer, decimal2
+  --hline       Horizontal line: "value" or "value,color,label"
+  --no-grid     Remove gridlines for cleaner look
+  --legend      Legend position: top, bottom, left, right, none
+
+ANNOTATIONS:
+  --show-change     Show % change from first to last value
+  --focus-change    Zoom Y axis to highlight the change
+  --focus-recent N  Focus on last N data points
+  --show-values     Label min/max values on chart
+
+MULTI-SERIES:
+  --series-field    Field to split data into multiple lines
+  --color-field     Field for color encoding
+  --stacked         Stack bars/areas
+
+SPECIAL CHARTS:
+  --sparkline             Tiny 80x20 inline chart, no axes
+  --category-field        Category field for pie/donut
+  --open/high/low/close-field   Fields for candlestick
+  --volume-field          Volume overlay (dual Y axis)
+  --color-value-field     Value field for heatmap coloring
+  --color-scheme          Color scheme for heatmap (e.g., viridis)
+
+EXAMPLES:
+  # Simple line chart
+  node chart.mjs --data '[{"x":"Mon","y":10},{"x":"Tue","y":15}]' -o sales.png
+
+  # Dark mode bar chart with title
+  node chart.mjs --type bar --data '[...]' --title "Revenue" --dark -o rev.png
+
+  # Time series with percentage Y axis
+  node chart.mjs --data '[...]' --x-type temporal --y-format percent -o pct.png
+
+  # Sparkline for inline use
+  node chart.mjs --sparkline --data '[{"x":1,"y":10},{"x":2,"y":15}]' -o spark.png
+`);
+  process.exit(0);
+}
+
 // Parse CLI args
 function parseArgs(args) {
   const opts = {
@@ -44,13 +124,26 @@ function parseArgs(args) {
     sparkline: false,
   };
   
+  // Support shorthand: "Mon:10,Tue:25,Wed:18" → [{x:"Mon",y:10},...]
+  function parseDataArg(str) {
+    str = str.trim();
+    if (str.startsWith('[') || str.startsWith('{')) return JSON.parse(str);
+    // shorthand: key:value,key:value,...
+    return str.split(',').map(pair => {
+      const [label, val] = pair.split(':');
+      const num = Number(val);
+      return { x: label.trim(), y: isNaN(num) ? val.trim() : num };
+    });
+  }
+
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     const next = args[i + 1];
     
     switch (arg) {
+      case '--help': case '-h': showHelp(); break;
       case '--type': opts.type = next; i++; break;
-      case '--data': opts.data = JSON.parse(next); i++; break;
+      case '--data': opts.data = parseDataArg(next); i++; break;
       case '--spec': opts.specFile = next; i++; break;
       case '--output': opts.output = next; i++; break;
       case '--title': opts.title = next; i++; break;
@@ -86,6 +179,23 @@ function parseArgs(args) {
       case '--y-category-field': opts.yCategoryField = next; i++; break;
       case '--color-scheme': opts.colorScheme = next; i++; break;
       case '--x-type': opts.xType = next; i++; break;  // ordinal, temporal, quantitative
+      case '--hline': {
+        // Format: "value" or "value,color" or "value,color,label"
+        const parts = next.split(',');
+        const hline = { value: parseFloat(parts[0]) };
+        if (parts[1]) hline.color = parts[1];
+        if (parts[2]) hline.label = parts[2];
+        opts.hlines = opts.hlines || [];
+        opts.hlines.push(hline);
+        i++;
+        break;
+      }
+      case '--y-format': opts.yFormat = next; i++; break;  // percent, dollar, compact, or d3-format string
+      case '--subtitle': opts.subtitle = next; i++; break;
+      case '--no-grid': opts.noGrid = true; break;
+      case '--legend': opts.legend = next; i++; break;  // top, bottom, left, right, none
+      case '--x-label-angle': opts.xLabelAngle = parseFloat(next); i++; break;  // X axis label rotation angle
+      case '-o': opts.output = next; i++; break;  // Shorthand for --output
     }
   }
   
@@ -117,20 +227,37 @@ async function readStdin() {
   });
 }
 
+// Resolve y-format shorthand to d3-format string
+function resolveYFormat(fmt) {
+  if (!fmt) return null;
+  const shortcuts = {
+    'percent': '.1%',      // 45.2%
+    'pct': '.1%',
+    'dollar': '$,.2f',     // $1,234.56
+    'usd': '$,.2f',
+    'compact': '~s',       // 1.2K, 3.4M
+    'integer': ',.0f',     // 1,234
+    'decimal2': ',.2f',    // 1,234.56
+    'decimal4': ',.4f',    // 0.0003
+    'scientific': '.2e',   // 3.71e-4
+  };
+  return shortcuts[fmt] || fmt;  // Allow raw d3-format strings
+}
+
 // Build Vega-Lite spec from options
 function buildSpec(opts) {
   // Theme colors
   const theme = opts.dark ? {
     bg: '#1a1a2e',
     text: '#e0e0e0',
-    grid: '#333355',
+    grid: opts.noGrid ? 'transparent' : '#333355',
     accent: opts.color || '#ff6b6b',
     positive: '#4ade80',
     negative: '#f87171',
   } : {
     bg: '#ffffff',
     text: '#333333',
-    grid: '#e0e0e0',
+    grid: opts.noGrid ? 'transparent' : '#e0e0e0',
     accent: opts.color || '#e63946',
     positive: '#22c55e',
     negative: '#ef4444',
@@ -169,7 +296,7 @@ function buildSpec(opts) {
           field: catField,
           type: 'nominal',
           title: opts.xTitle || catField,
-          scale: { scheme: opts.dark ? 'category20' : 'category10' },
+          scale: { scheme: opts.colorScheme || (opts.dark ? 'category20' : 'category10') },
           legend: { labelColor: theme.text, titleColor: theme.text }
         },
         order: { field: valField, type: 'quantitative', sort: 'descending' }
@@ -204,7 +331,7 @@ function buildSpec(opts) {
           field: catField,
           type: 'nominal',
           title: opts.xTitle || catField,
-          scale: { scheme: opts.dark ? 'category20' : 'category10' },
+          scale: { scheme: opts.colorScheme || (opts.dark ? 'category20' : 'category10') },
           legend: { labelColor: theme.text, titleColor: theme.text }
         },
         order: { field: valField, type: 'quantitative', sort: 'descending' }
@@ -246,7 +373,7 @@ function buildSpec(opts) {
           field: xField,
           type: 'ordinal',
           title: opts.xTitle || xField,
-          axis: { labelAngle: -45, labelColor: theme.text, titleColor: theme.text, domainColor: theme.grid }
+          axis: { labelAngle: opts.xLabelAngle !== undefined ? opts.xLabelAngle : -45, labelColor: theme.text, titleColor: theme.text, domainColor: theme.grid }
         },
         y: {
           field: yField,
@@ -341,7 +468,7 @@ function buildSpec(opts) {
         {
           mark: { type: 'rule', strokeWidth: 1 },
           encoding: {
-            x: { field: opts.xField, type: 'ordinal', axis: { labelAngle: -45 } },
+            x: { field: opts.xField, type: 'ordinal', axis: { labelAngle: opts.xLabelAngle !== undefined ? opts.xLabelAngle : -45 } },
             y: { field: lowField, type: 'quantitative', title: 'Price' },
             y2: { field: highField },
             color: {
@@ -406,7 +533,7 @@ function buildSpec(opts) {
           field: opts.xField,
           type: 'ordinal',
           title: opts.xTitle || opts.xField,
-          axis: { labelAngle: -45 }
+          axis: { labelAngle: opts.xLabelAngle !== undefined ? opts.xLabelAngle : -45 }
         },
         y: {
           field: opts.yField,
@@ -418,7 +545,7 @@ function buildSpec(opts) {
           field: opts.colorField,
           type: 'nominal',
           title: opts.colorField,
-          scale: { scheme: 'category10' }
+          scale: { scheme: opts.colorScheme || 'category10' }
         }
       },
       config: {
@@ -462,7 +589,7 @@ function buildSpec(opts) {
           field: opts.xField,
           type: 'ordinal',
           title: opts.xTitle || opts.xField,
-          axis: { labelAngle: -45 }
+          axis: { labelAngle: opts.xLabelAngle !== undefined ? opts.xLabelAngle : -45 }
         },
         y: {
           field: opts.yField,
@@ -474,7 +601,7 @@ function buildSpec(opts) {
           field: opts.seriesField,
           type: 'nominal',
           title: opts.seriesField,
-          scale: { scheme: 'category10' }
+          scale: { scheme: opts.colorScheme || 'category10' }
         }
       },
       config: {
@@ -549,7 +676,7 @@ function buildSpec(opts) {
             x: {
               field: opts.xField,
               type: 'ordinal',
-              axis: { labelAngle: -45, title: opts.xTitle || opts.xField }
+              axis: { labelAngle: opts.xLabelAngle !== undefined ? opts.xLabelAngle : -45, title: opts.xTitle || opts.xField }
             },
             y: {
               field: opts.volumeField,
@@ -659,6 +786,7 @@ function buildSpec(opts) {
   
   // Base layer - the main chart
   const xAxisType = opts.xType || 'ordinal';  // ordinal (default), temporal, quantitative
+  const yFormat = resolveYFormat(opts.yFormat);
   const mainLayer = {
     mark: markConfig[opts.type] || markConfig.line,
     encoding: {
@@ -666,12 +794,13 @@ function buildSpec(opts) {
         field: opts.xField,
         type: xAxisType,
         title: opts.xTitle || opts.xField,
-        axis: { labelAngle: -45 }
+        axis: { labelAngle: opts.xLabelAngle !== undefined ? opts.xLabelAngle : -45 }
       },
       y: {
         field: opts.yField,
         type: 'quantitative',
         title: opts.yTitle || opts.yField,
+        ...(yFormat ? { axis: { format: yFormat } } : {})
       }
     }
   };
@@ -713,6 +842,17 @@ function buildSpec(opts) {
     const minPoint = opts.data.find(d => d[opts.yField] === minVal);
     const maxPoint = opts.data.find(d => d[opts.yField] === maxVal);
     
+    // Format value labels using y-format if available
+    const fmtVal = (v) => {
+      if (!yFormat) return `${v}`;
+      // Simple formatting for common cases
+      if (yFormat === '.1%') return `${(v * 100).toFixed(1)}%`;
+      if (yFormat === '$,.2f') return `$${v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      if (yFormat === ',.4f') return v.toFixed(4);
+      if (yFormat === '.2e') return v.toExponential(2);
+      return `${v}`;
+    };
+
     // Max point label (above)
     if (maxPoint) {
       layers.push({
@@ -727,7 +867,7 @@ function buildSpec(opts) {
         encoding: {
           x: { datum: maxPoint[opts.xField] },
           y: { datum: maxPoint[opts.yField] },
-          text: { value: `${maxVal}` }
+          text: { value: fmtVal(maxVal) }
         }
       });
     }
@@ -746,7 +886,7 @@ function buildSpec(opts) {
         encoding: {
           x: { datum: minPoint[opts.xField] },
           y: { datum: minPoint[opts.yField] },
-          text: { value: `${minVal}` }
+          text: { value: fmtVal(minVal) }
         }
       });
     }
@@ -803,6 +943,47 @@ function buildSpec(opts) {
     }
   }
   
+  // Add horizontal reference lines (thresholds, targets, etc.)
+  // Format: --hline "value" or --hline "value,color" or --hline "value,color,label"
+  if (opts.hlines && opts.hlines.length > 0) {
+    for (const hline of opts.hlines) {
+      const lineColor = hline.color || (opts.dark ? '#fbbf24' : '#d97706');  // Amber default
+      
+      // Horizontal rule
+      layers.push({
+        mark: {
+          type: 'rule',
+          color: lineColor,
+          strokeWidth: 2,
+          strokeDash: [6, 3]
+        },
+        encoding: {
+          y: { datum: hline.value }
+        }
+      });
+      
+      // Label on the right side
+      if (hline.label) {
+        layers.push({
+          mark: {
+            type: 'text',
+            align: 'right',
+            baseline: 'middle',
+            dx: -5,
+            fontSize: 11,
+            fontWeight: 'bold',
+            color: lineColor
+          },
+          encoding: {
+            x: { value: opts.width - 5 },
+            y: { datum: hline.value },
+            text: { value: hline.label }
+          }
+        });
+      }
+    }
+  }
+
   // Sparkline mode: minimal spec, no axes
   if (opts.sparkline || opts.noAxes) {
     const sparkSpec = {
@@ -857,12 +1038,23 @@ function buildSpec(opts) {
         titleColor: theme.text,
         domainColor: theme.grid
       },
-      view: { stroke: null }
+      view: { stroke: null },
+      legend: { 
+        labelColor: theme.text, 
+        titleColor: theme.text,
+        ...(opts.legend === 'none' ? { disable: true } : {}),
+        ...(opts.legend && opts.legend !== 'none' ? { orient: opts.legend } : {})
+      }
     }
   };
   
   if (opts.title) {
-    spec.title = { text: opts.title, anchor: 'start', color: theme.text };
+    spec.title = {
+      text: opts.title,
+      anchor: 'start',
+      color: theme.text,
+      ...(opts.subtitle ? { subtitle: opts.subtitle, subtitleColor: theme.grid, subtitleFontSize: 12 } : {})
+    };
   }
   
   return spec;

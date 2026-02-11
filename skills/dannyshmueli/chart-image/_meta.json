@@ -1,13 +1,18 @@
 {
   "owner": "dannyshmueli",
   "slug": "chart-image",
-  "displayName": "Chart Image Generator",
+  "displayName": "Chart Image",
   "latest": {
-    "version": "2.1.0",
-    "publishedAt": 1770012540457,
-    "commit": "https://github.com/clawdbot/skills/commit/00b661413113b5c0920daed89ec7c29f66d4b605"
+    "version": "2.2.0",
+    "publishedAt": 1770787156134,
+    "commit": null
   },
   "history": [
+    {
+      "version": "2.1.0",
+      "publishedAt": 1770012540457,
+      "commit": "https://github.com/clawdbot/skills/commit/00b661413113b5c0920daed89ec7c29f66d4b605"
+    },
     {
       "version": "2.0.0",
       "publishedAt": 1769867965714,
