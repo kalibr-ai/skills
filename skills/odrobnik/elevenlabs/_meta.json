@@ -1,13 +1,18 @@
 {
   "owner": "odrobnik",
   "slug": "elevenlabs",
-  "displayName": "ElevenLabs",
+  "displayName": "Elevenlabs",
   "latest": {
-    "version": "1.2.1",
-    "publishedAt": 1770874435061,
-    "commit": "https://github.com/openclaw/skills/commit/5583838b7585821843b4757d02c9a63f562205fc"
+    "version": "1.2.2",
+    "publishedAt": 1770881513195,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.2.1",
+      "publishedAt": 1770874435061,
+      "commit": "https://github.com/openclaw/skills/commit/5583838b7585821843b4757d02c9a63f562205fc"
+    },
     {
       "version": "1.1.3",
       "publishedAt": 1770841448847,
