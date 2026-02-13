@@ -1,63 +1,69 @@
-# Clawdbot Skill: Cookidoo
+# Cookidoo Skill for OpenClaw
 
-Access your Thermomix Cookidoo account from [Clawdbot](https://github.com/clawdbot/clawdbot).
-
-## Features
-
-- 👤 View account info
-- 🛒 List recipes on your shopping list
-- 🥕 Get all ingredients (aggregated)
-- 📚 View custom collections
-- 🔄 JSON output for automation
+Access Cookidoo (Thermomix) recipes, shopping lists, and meal planning via the unofficial [cookidoo-api](https://pypi.org/project/cookidoo-api/) Python package.
 
 ## Installation
 
-### Via ClawdHub
+### Via ClawHub
 ```bash
-clawdhub install cookidoo
+clawhub install @thekie/cookidoo
 ```
 
 ### Manual
-```bash
-git clone https://github.com/thekie/clawdbot-skill-cookidoo.git skills/cookidoo
-pip install cookidoo-api aiohttp
-```
+Copy the skill folder to `~/.openclaw/skills/cookidoo/`
 
-## Configuration
+## Required Credentials
 
-Create `~/.config/atlas/cookidoo.env`:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `COOKIDOO_EMAIL` | ✅ Yes | Your Cookidoo account email |
+| `COOKIDOO_PASSWORD` | ✅ Yes | Your Cookidoo account password |
+| `COOKIDOO_COUNTRY` | Optional | Country code (default: DE) |
+| `COOKIDOO_LANGUAGE` | Optional | Language code (default: de-DE) |
 
+Set credentials in environment or create `~/.config/atlas/cookidoo.env`:
 ```bash
 COOKIDOO_EMAIL=your@email.com
 COOKIDOO_PASSWORD=yourpassword
-COOKIDOO_COUNTRY=de          # Optional (de, ch, at, etc.)
-COOKIDOO_LANGUAGE=de-DE      # Optional
+```
+
+## Dependencies
+
+```bash
+pip install cookidoo-api
 ```
 
 ## Usage
 
+### List saved recipes
 ```bash
-# User info
-python skills/cookidoo/scripts/cookidoo_cli.py info
-
-# Shopping list recipes
-python skills/cookidoo/scripts/cookidoo_cli.py shopping
-
-# All ingredients
-python skills/cookidoo/scripts/cookidoo_cli.py ingredients
-
-# JSON output
-python skills/cookidoo/scripts/cookidoo_cli.py ingredients --json
+python scripts/cookidoo_cli.py recipes
 ```
 
-## Combining with Bring!
+### Search recipes
+```bash
+python scripts/cookidoo_cli.py search "Pasta"
+```
 
-Use with the [bring-shopping](https://clawdhub.com/skills/bring-shopping) skill to sync Cookidoo ingredients to your Bring! shopping list.
+### Get recipe details
+```bash
+python scripts/cookidoo_cli.py recipe <recipe_id>
+```
 
-## Credits
+### Get shopping list
+```bash
+python scripts/cookidoo_cli.py shopping
+```
 
-- Uses [cookidoo-api](https://github.com/miaucl/cookidoo-api) by miaucl
-- Cookidoo is a trademark of Vorwerk
+### Options
+- `--json` — Output as JSON
+- `--limit N` — Limit results (default: 10)
+
+## Notes
+
+- Requires an active Cookidoo subscription
+- Uses the unofficial cookidoo-api — may break with Cookidoo updates
+- Store credentials securely, never commit them to git
 
 ## License
 
