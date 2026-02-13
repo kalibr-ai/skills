@@ -41,7 +41,7 @@ AGENT_CONFIG = AgentRegistryConfig(
     factory_function="lobster.agents.mydomain.my_agent.my_expert_agent",
     handoff_tool_name="handoff_to_my_expert_agent",
     handoff_tool_description="Assign tasks for my domain: analysis type A, capability B",
-    tier_requirement="free",  # "free", "premium", or "enterprise"
+    tier_requirement="free",  # All official agents are free. Use "premium"/"enterprise" for custom packages.
     # Optional: child_agents=["sub_agent_a", "sub_agent_b"],
 )
 
@@ -222,25 +222,25 @@ python -c "from lobster.core.component_registry import ComponentRegistry; print(
 pytest tests/unit/agents/test_my_agent.py -v
 ```
 
-## Premium Agents
+## Custom Enterprise Agents
 
-For premium agents, set `tier_requirement="premium"` in AGENT_CONFIG:
+All official Lobster agents are free and open source. For custom enterprise packages that need access control, set `tier_requirement="premium"` or `"enterprise"` in AGENT_CONFIG:
 
 ```python
 from lobster.config.agent_registry import AgentRegistryConfig
 
 AGENT_CONFIG = AgentRegistryConfig(
-    name="my_premium_agent",
-    display_name="My Premium Agent",
-    description="Premium agent with advanced capabilities",
-    factory_function="lobster.agents.mydomain.my_premium_agent.my_premium_agent",
-    handoff_tool_name="handoff_to_my_premium_agent",
-    handoff_tool_description="Assign premium analysis tasks",
-    tier_requirement="premium",  # Requires license
+    name="my_enterprise_agent",
+    display_name="My Enterprise Agent",
+    description="Custom enterprise agent with advanced capabilities",
+    factory_function="lobster.agents.mydomain.my_enterprise_agent.my_enterprise_agent",
+    handoff_tool_name="handoff_to_my_enterprise_agent",
+    handoff_tool_description="Assign enterprise analysis tasks",
+    tier_requirement="premium",  # Requires license (for custom packages)
 )
 ```
 
-Premium agents are gated by ComponentRegistry license checks at runtime.
+Custom enterprise agents are gated by ComponentRegistry license checks at runtime.
 
 ## Best Practices
 

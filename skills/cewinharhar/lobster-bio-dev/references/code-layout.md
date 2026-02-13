@@ -18,9 +18,9 @@ lobster/                          # Repository root
 │   ├── lobster-visualization/
 │   ├── lobster-metadata/
 │   ├── lobster-structural-viz/
-│   ├── lobster-genomics/        # [premium]
-│   ├── lobster-proteomics/      # [premium]
-│   └── lobster-ml/              # [premium]
+│   ├── lobster-genomics/        # [alpha]
+│   ├── lobster-proteomics/      # [alpha]
+│   └── lobster-ml/              # [alpha]
 ├── tests/
 │   ├── unit/
 │   └── integration/
@@ -95,9 +95,9 @@ lobster-{domain}/
 | `lobster-visualization` | visualization_expert | 1 service |
 | `lobster-metadata` | metadata_assistant | 8 services |
 | `lobster-structural-viz` | protein_structure_visualization_expert | 4 services |
-| `lobster-proteomics` [premium] | proteomics_expert | 11 services |
-| `lobster-genomics` [premium] | genomics_expert | 3 services |
-| `lobster-ml` [premium] | machine_learning_expert | 4 services |
+| `lobster-proteomics` [alpha] | proteomics_expert | 11 services |
+| `lobster-genomics` [alpha] | genomics_expert | 3 services |
+| `lobster-ml` [alpha] | machine_learning_expert | 4 services |
 
 ## Tests (`tests/`)
 

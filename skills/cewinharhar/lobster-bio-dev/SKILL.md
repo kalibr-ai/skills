@@ -58,10 +58,14 @@ lobster/
 ## Quick Commands
 
 ```bash
-# Setup
-make dev-install              # Full dev setup
+# Setup (development)
+make dev-install              # Full dev setup with editable install
 make test                     # Run all tests
 make format                   # black + isort
+
+# Setup (end-user testing via uv tool)
+uv tool install 'lobster-ai[full,anthropic]'   # Install as users see it
+uv tool upgrade lobster-ai                      # Upgrade to latest
 
 # Running
 lobster chat                  # Interactive mode
@@ -121,7 +125,7 @@ AGENT_CONFIG = AgentRegistryConfig(
     factory_function="lobster.agents.mydomain.my_agent.my_agent",
     handoff_tool_name="handoff_to_my_agent",
     handoff_tool_description="Assign tasks for my domain analysis",
-    tier_requirement="free",  # or "premium"
+    tier_requirement="free",  # All official agents are free
 )
 
 # Heavy imports AFTER config

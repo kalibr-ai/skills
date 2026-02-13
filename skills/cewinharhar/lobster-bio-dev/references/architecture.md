@@ -39,7 +39,7 @@ agent_config = registry.get_agent("transcriptomics_expert")
 **Key methods:**
 - `get_available_agents()` — Returns all discovered agents
 - `get_agent(name)` — Get specific agent config
-- `is_premium(name)` — Check if agent requires license
+- `is_agent_available(name, tier)` — Check if agent is available at tier (all official agents are free)
 
 ### DataManagerV2 (`lobster/core/data_manager_v2.py`)
 
@@ -119,9 +119,9 @@ Each domain has specialist agents in separate packages:
 | `lobster-transcriptomics` | transcriptomics_expert, annotation_expert, de_analysis_expert |
 | `lobster-research` | research_agent, data_expert_agent |
 | `lobster-visualization` | visualization_expert_agent |
-| `lobster-proteomics` | proteomics_expert [premium] |
-| `lobster-genomics` | genomics_expert [premium] |
-| `lobster-ml` | machine_learning_expert [premium] |
+| `lobster-proteomics` | proteomics_expert [alpha] |
+| `lobster-genomics` | genomics_expert [alpha] |
+| `lobster-ml` | machine_learning_expert [alpha] |
 
 ## Service Architecture
 
