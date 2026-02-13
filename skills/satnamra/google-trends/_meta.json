@@ -1,0 +1,11 @@
+{
+  "owner": "satnamra",
+  "slug": "google-trends",
+  "displayName": "Google Trends",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1770953155874,
+    "commit": null
+  },
+  "history": []
+}
