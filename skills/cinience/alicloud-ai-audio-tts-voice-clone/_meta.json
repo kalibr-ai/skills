@@ -1,0 +1,11 @@
+{
+  "owner": "cinience",
+  "slug": "alicloud-ai-audio-tts-voice-clone",
+  "displayName": "Alicloud Ai Audio Tts Voice Clone",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1770973109098,
+    "commit": null
+  },
+  "history": []
+}
