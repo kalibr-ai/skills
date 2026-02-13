@@ -2,78 +2,89 @@
 """
 Video Analyzer CLI Entry Point
 """
-import sys
-import json
 import argparse
+import json
+import sys
 from pathlib import Path
 
-# Add parent directory to path to enable imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add skill directory to import path for script-mode execution.
+SKILL_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SKILL_DIR))
 
-from video_analyzer.main import skill_main
-from video_analyzer.models import SummaryStyle
+try:
+    from .main import skill_main
+    from .models import SummaryStyle
+except ImportError:
+    from main import skill_main
+    from models import SummaryStyle
+
+
+STYLE_MAP = {
+    # Canonical CLI values.
+    "concise": SummaryStyle.BRIEF_POINTS,
+    "deep": SummaryStyle.DEEP_LONGFORM,
+    "social": SummaryStyle.SOCIAL_MEDIA,
+    "study": SummaryStyle.STUDY_NOTES,
+    # Backward-compatible values used in skill.yaml/history.
+    "brief_points": SummaryStyle.BRIEF_POINTS,
+    "deep_longform": SummaryStyle.DEEP_LONGFORM,
+    "social_media": SummaryStyle.SOCIAL_MEDIA,
+    "study_notes": SummaryStyle.STUDY_NOTES,
+}
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="智能分析 Bilibili/YouTube/本地视频，生成转写、评估和总结"
+        description="Analyze Bilibili/YouTube/local videos and generate transcript/evaluation/summary."
     )
-    parser.add_argument("--url", required=True, help="视频链接或本地文件路径")
+    parser.add_argument("--url", required=True, help="Video URL or local media path.")
     parser.add_argument(
         "--whisper-model",
         default="large-v2",
-        help="Whisper 模型 (tiny/base/small/medium/large-v2/large-v3/turbo/distil-large-v2/distil-large-v3/distil-large-v3.5)",
+        help="tiny/base/small/medium/large-v2/large-v3/turbo/distil-large-v2/distil-large-v3/distil-large-v3.5",
     )
     parser.add_argument(
         "--analysis-types",
         default="evaluation,summary",
-        help="分析类型，逗号分隔 (evaluation,summary,format)",
+        help="Comma-separated: evaluation,summary,format",
     )
-    parser.add_argument(
-        "--output-dir", default="./video-analysis", help="输出目录"
-    )
+    parser.add_argument("--output-dir", default="./video-analysis", help="Output directory")
     parser.add_argument(
         "--save-transcript",
-        type=lambda x: x.lower() in ["true", "1", "yes"],
+        type=lambda x: str(x).lower() in ["true", "1", "yes"],
         default=True,
-        help="是否保存原始转写",
+        help="Whether to save raw transcript.",
     )
-    parser.add_argument("--config", help="配置文件路径")
+    parser.add_argument("--config", help="Path to config.json")
     parser.add_argument(
         "--summary-style",
-        choices=["concise", "deep", "social", "study"],
-        help="总结风格 (concise/deep/social/study)",
+        help="Summary style: concise/deep/social/study (also supports brief_points/deep_longform/social_media/study_notes).",
     )
     parser.add_argument(
         "--enable-screenshots",
         action="store_true",
         default=True,
-        help="启用关键帧截图提取（默认启用，使用 --no-screenshots 禁用）",
+        help="Enable keyframe screenshot extraction (default enabled; use --no-screenshots to disable).",
     )
     parser.add_argument(
         "--no-screenshots",
         action="store_true",
-        help="禁用关键帧截图提取",
+        help="Disable keyframe screenshot extraction.",
     )
 
     args = parser.parse_args()
 
-    # Parse analysis types
-    analysis_types = [t.strip() for t in args.analysis_types.split(",")]
+    analysis_types = [t.strip() for t in args.analysis_types.split(",") if t.strip()]
+    style_key = args.summary_style.strip().lower() if args.summary_style else None
+    summary_style = STYLE_MAP.get(style_key) if style_key else None
 
-    # Map summary style
-    style_map = {
-        "concise": SummaryStyle.BRIEF_POINTS,
-        "deep": SummaryStyle.DEEP_LONGFORM,
-        "social": SummaryStyle.SOCIAL_MEDIA,
-        "study": SummaryStyle.STUDY_NOTES,
-    }
-    summary_style = style_map.get(args.summary_style) if args.summary_style else None
+    if style_key and summary_style is None:
+        valid_values = ", ".join(sorted(STYLE_MAP.keys()))
+        print(f"Invalid --summary-style '{args.summary_style}'. Valid values: {valid_values}")
+        sys.exit(2)
 
-    # Handle screenshot flag (default True, but can be disabled with --no-screenshots)
     enable_screenshots = args.enable_screenshots and not args.no_screenshots
 
-    # Run analysis
     result = skill_main(
         url=args.url,
         whisper_model=args.whisper_model,
@@ -85,10 +96,7 @@ def main():
         enable_screenshots=enable_screenshots,
     )
 
-    # Output result as JSON
     print(json.dumps(result, ensure_ascii=False, indent=2))
-
-    # Exit with appropriate code
     sys.exit(0 if result.get("success") else 1)
 
 

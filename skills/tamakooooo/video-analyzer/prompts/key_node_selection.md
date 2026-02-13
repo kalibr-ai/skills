@@ -54,21 +54,21 @@
 
 ```json
 [
-  {
+  {{
     "timestamp_seconds": 125.5,
     "title": "核心概念: Transformer架构解析",
     "importance_score": 0.95
-  },
-  {
+  }},
+  {{
     "timestamp_seconds": 340.2,
     "title": "关键步骤: 注意力机制计算流程",
     "importance_score": 0.88
-  },
-  {
+  }},
+  {{
     "timestamp_seconds": 678.0,
     "title": "应用案例: GPT模型实现细节",
     "importance_score": 0.82
-  }
+  }}
 ]
 ```
 
@@ -94,31 +94,31 @@
 输出:
 ```json
 [
-  {
+  {{
     "timestamp_seconds": 45.0,
     "title": "视频主题与核心问题",
     "importance_score": 0.75
-  },
-  {
+  }},
+  {{
     "timestamp_seconds": 180.5,
     "title": "关键概念: 依赖注入原理",
     "importance_score": 0.92
-  },
-  {
+  }},
+  {{
     "timestamp_seconds": 420.0,
     "title": "代码实现: 完整示例",
     "importance_score": 0.88
-  },
-  {
+  }},
+  {{
     "timestamp_seconds": 680.3,
     "title": "实际案例: Spring框架应用",
     "importance_score": 0.80
-  },
-  {
+  }},
+  {{
     "timestamp_seconds": 850.0,
     "title": "核心要点总结",
     "importance_score": 0.78
-  }
+  }}
 ]
 ```
 

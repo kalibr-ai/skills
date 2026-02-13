@@ -1,16 +1,15 @@
 name: video-analyzer
-version: 2.0.0
-description: 智能分析 Bilibili/YouTube/本地视频，生成转写、评估和总结。支持关键帧截图自动嵌入。
+version: 2.0.2
+description: Analyze Bilibili/YouTube/local videos and generate transcript, evaluation, and summary with optional screenshots.
 author: user
 type: utility
 
 triggers:
-  - "分析视频"
-  - "转写视频"
-  - "总结视频内容"
-  - "评估这个视频"
-  - "视频内容分析"
-  - "提取视频文字"
+  - "analyze video"
+  - "video transcription"
+  - "summarize video"
+  - "video evaluation"
+  - "extract video text"
 
 capabilities:
   - video_transcription
@@ -22,46 +21,45 @@ parameters:
   url:
     type: string
     required: true
-    description: 视频链接或本地视频文件路径
-  
+    description: Video URL or local media file path.
+
   whisper_model:
     type: choice
     default: large-v2
     options: [tiny, base, small, medium, large-v2, large-v3, turbo, distil-large-v2, distil-large-v3, distil-large-v3.5]
-    description: Whisper模型名称（仅多语言模型，已移除所有单语言.en模型）
-  
+    description: Whisper model name.
+
   analysis_types:
     type: multi_choice
     default: [evaluation, summary]
     options: [evaluation, summary, format]
-    description: 分析类型列表
-  
+    description: Analysis types to run.
+
   output_dir:
     type: string
     default: "./video-analysis"
-    description: 输出目录路径
-  
+    description: Output directory path (resolved relative to skill directory when relative).
+
   save_transcript:
     type: boolean
     default: true
-    description: 是否保存原始转写文件
-  
+    description: Save raw transcript markdown.
+
   summary_style:
     type: choice
-    default: deep_longform
-    options: [brief_points, deep_longform, social_media, study_notes]
-    description: Summary style (简洁要点, 深度长文, 社媒文案, 学习笔记)
-  
+    default: deep
+    options: [concise, deep, social, study]
+    description: Summary style.
+
   enable_screenshots:
     type: boolean
     default: true
-    description: 启用关键帧截图提取（默认启用，自动在总结中插入关键节点截图）
+    description: Enable keyframe screenshot extraction and insertion into summary.
 
 examples:
-  - "分析这个视频 https://www.bilibili.com/video/BV1xx411c7mD"
-  - "转写 YouTube 视频 https://youtu.be/xxx，使用 small 模型"
-  - "分析 B站视频 ./my-video.mp4，只做评估和总结"
-  - "搜索 B站'Python教程'，分析前3个视频"
+  - "Analyze this video https://www.bilibili.com/video/BV1xx411c7mD"
+  - "Transcribe this YouTube video https://youtu.be/xxx using small model"
+  - "Analyze ./my-video.mp4 and only output summary"
 
 output:
   format: structured

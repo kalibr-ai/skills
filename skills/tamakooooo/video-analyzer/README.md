@@ -30,7 +30,7 @@ pip install -r requirements.txt
 ### Python API
 
 ```python
-from skills.video_analyzer.main import skill_main
+from main import skill_main
 
 # 基础用法
 result = skill_main("https://www.bilibili.com/video/BV1xx411c7mD")

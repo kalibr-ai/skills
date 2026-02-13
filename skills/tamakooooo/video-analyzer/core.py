@@ -8,8 +8,13 @@ from datetime import datetime
 import time
 import re
 import logging
-from .utils.temp_manager import temp_manager
-from .models import SummaryStyle, calculate_screenshot_count
+
+try:
+    from .utils.temp_manager import temp_manager
+    from .models import SummaryStyle, calculate_screenshot_count
+except ImportError:
+    from utils.temp_manager import temp_manager
+    from models import SummaryStyle, calculate_screenshot_count
 
 
 logger = logging.getLogger(__name__)
@@ -28,6 +33,7 @@ class VideoAnalyzer:
         summary_style: Optional[SummaryStyle] = None,
         enable_screenshots: bool = False,
     ):
+        self.skill_dir = Path(__file__).resolve().parent
         self.whisper_model = whisper_model
         self.analysis_types = (
             ["evaluation", "summary"] if analysis_types is None else analysis_types
@@ -46,15 +52,18 @@ class VideoAnalyzer:
 
         # Create runtime directories
         self.output_dir.mkdir(exist_ok=True, parents=True)
-        Path("data").mkdir(exist_ok=True, parents=True)
-        Path("models/whisper").mkdir(exist_ok=True, parents=True)
-        Path("logs").mkdir(exist_ok=True, parents=True)
+        (self.skill_dir / "data").mkdir(exist_ok=True, parents=True)
+        (self.skill_dir / "models" / "whisper").mkdir(exist_ok=True, parents=True)
+        (self.skill_dir / "logs").mkdir(exist_ok=True, parents=True)
 
     @property
     def transcriber(self):
         """Lazy load transcriber."""
         if self._transcriber is None:
-            from .transcriber import Transcriber
+            try:
+                from .transcriber import Transcriber
+            except ImportError:
+                from transcriber import Transcriber
 
             self._transcriber = Transcriber(model_size=self.whisper_model)
         return self._transcriber
@@ -63,7 +72,10 @@ class VideoAnalyzer:
     def llm_processor(self):
         """Lazy load LLM processor."""
         if self._llm_processor is None:
-            from .llm_processor import LLMProcessor
+            try:
+                from .llm_processor import LLMProcessor
+            except ImportError:
+                from llm_processor import LLMProcessor
 
             self._llm_processor = LLMProcessor(config_path=self.config_path)
         return self._llm_processor
@@ -72,7 +84,10 @@ class VideoAnalyzer:
     def downloader(self):
         """Lazy load downloader."""
         if self._downloader is None:
-            from .downloader import Downloader
+            try:
+                from .downloader import Downloader
+            except ImportError:
+                from downloader import Downloader
 
             self._downloader = Downloader()
         return self._downloader
@@ -81,7 +96,10 @@ class VideoAnalyzer:
     def screenshot_extractor(self):
         """Lazy load screenshot extractor."""
         if self._screenshot_extractor is None:
-            from .screenshot_extractor import ScreenshotExtractor
+            try:
+                from .screenshot_extractor import ScreenshotExtractor
+            except ImportError:
+                from screenshot_extractor import ScreenshotExtractor
 
             self._screenshot_extractor = ScreenshotExtractor()
         return self._screenshot_extractor

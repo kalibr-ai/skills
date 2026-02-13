@@ -95,19 +95,30 @@ class LLMProcessor:
             print("❌ OpenAI package not installed")
             return None
 
+        api_key = config.get("api_key")
+        base_url = config.get("base_url", "https://api.openai.com/v1")
+        model = config.get("model", "gpt-4o-mini")
+
+        if not api_key:
+            raise ValueError("API key not configured in config.json")
+
         client = OpenAI(
-            api_key=config.get("api_key"),
-            base_url=config.get("base_url", "https://api.openai.com/v1"),
+            api_key=api_key,
+            base_url=base_url,
         )
 
-        response = client.chat.completions.create(
-            model=config.get("model", "gpt-4o-mini"),
-            messages=[{"role": "user", "content": prompt}],
-            temperature=config.get("temperature", 0.3),
-            max_tokens=config.get("max_tokens", 4000),
-        )
-
-        return response.choices[0].message.content
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=config.get("temperature", 0.3),
+                max_tokens=config.get("max_tokens", 4000),
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"OpenAI API call failed: {type(e).__name__}: {e}")
+            logger.error(f"API endpoint: {base_url}, Model: {model}")
+            raise
 
     def process_summary(
         self,
@@ -346,13 +357,23 @@ class LLMProcessor:
             print("❌ Anthropic package not installed")
             return None
 
-        client = Anthropic(api_key=config.get("api_key"))
+        api_key = config.get("api_key")
+        model = config.get("model", "claude-3-5-sonnet-20241022")
 
-        response = client.messages.create(
-            model=config.get("model", "claude-3-5-sonnet-20241022"),
-            max_tokens=config.get("max_tokens", 4000),
-            temperature=config.get("temperature", 0.3),
-            messages=[{"role": "user", "content": prompt}],
-        )
+        if not api_key:
+            raise ValueError("API key not configured in config.json")
 
-        return response.content[0].text
+        client = Anthropic(api_key=api_key)
+
+        try:
+            response = client.messages.create(
+                model=model,
+                max_tokens=config.get("max_tokens", 4000),
+                temperature=config.get("temperature", 0.3),
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text
+        except Exception as e:
+            logger.error(f"Anthropic API call failed: {type(e).__name__}: {e}")
+            logger.error(f"Model: {model}")
+            raise

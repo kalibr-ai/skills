@@ -81,6 +81,8 @@ class Downloader:
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+            "nocheckcertificate": True,
+            "http_chunk_size": 10485760,
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -153,6 +155,8 @@ class Downloader:
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+            "nocheckcertificate": True,
+            "http_chunk_size": 10485760,
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

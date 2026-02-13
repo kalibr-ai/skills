@@ -7,9 +7,24 @@ Video Analyzer Skill - Main Entry Point
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 import shutil
-from .core import VideoAnalyzer
-from .dependency_manager import check_and_install_dependencies
-from .models import SummaryStyle
+
+try:
+    from .core import VideoAnalyzer
+    from .dependency_manager import check_and_install_dependencies
+    from .models import SummaryStyle
+except ImportError:
+    from core import VideoAnalyzer
+    from dependency_manager import check_and_install_dependencies
+    from models import SummaryStyle
+
+SKILL_DIR = Path(__file__).resolve().parent
+
+
+def _resolve_from_skill_dir(path_value: str) -> Path:
+    path = Path(path_value)
+    if path.is_absolute():
+        return path
+    return (SKILL_DIR / path).resolve()
 
 
 def skill_main(
@@ -51,25 +66,20 @@ def skill_main(
             "error": str (if failed)
         }
     """
-    # Ensure default runtime directories exist
-    Path("models/whisper").mkdir(parents=True, exist_ok=True)
-    Path("output").mkdir(parents=True, exist_ok=True)
-    Path("data").mkdir(parents=True, exist_ok=True)
-    Path("logs").mkdir(parents=True, exist_ok=True)
+    # Keep runtime paths stable regardless of current working directory.
+    (SKILL_DIR / "models" / "whisper").mkdir(parents=True, exist_ok=True)
+    (SKILL_DIR / "output").mkdir(parents=True, exist_ok=True)
+    (SKILL_DIR / "data").mkdir(parents=True, exist_ok=True)
+    (SKILL_DIR / "logs").mkdir(parents=True, exist_ok=True)
 
     # Ensure config exists (best effort)
-    if config_path is None:
-        default_cfg = Path("config.json")
-        example_cfg = Path("config.example.json")
-        skill_example_cfg = Path(__file__).parent / "config.example.json"
+    resolved_config_path = _resolve_from_skill_dir(config_path) if config_path else None
+    if resolved_config_path is None:
+        default_cfg = SKILL_DIR / "config.json"
+        example_cfg = SKILL_DIR / "config.example.json"
         if not default_cfg.exists():
             if example_cfg.exists():
                 shutil.copy(example_cfg, default_cfg)
-                print(
-                    "[INFO] config.json not found. Copied from project config.example.json"
-                )
-            elif skill_example_cfg.exists():
-                shutil.copy(skill_example_cfg, default_cfg)
                 print(
                     "[INFO] config.json not found. Copied from skill config.example.json"
                 )
@@ -77,6 +87,9 @@ def skill_main(
                 print(
                     "[WARN] config.json not found and no config.example.json available"
                 )
+        resolved_config_path = default_cfg
+
+    resolved_output_dir = _resolve_from_skill_dir(output_dir)
 
     # Check dependencies
     if not check_and_install_dependencies():
@@ -94,9 +107,9 @@ def skill_main(
     analyzer = VideoAnalyzer(
         whisper_model=whisper_model,
         analysis_types=effective_analysis_types,
-        output_dir=output_dir,
+        output_dir=str(resolved_output_dir),
         save_transcript=save_transcript,
-        config_path=config_path,
+        config_path=str(resolved_config_path) if resolved_config_path else None,
         summary_style=summary_style,
         enable_screenshots=enable_screenshots,
     )
