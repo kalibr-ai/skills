@@ -2,8 +2,8 @@
 name: youtube
 version: 1.0.4
 description: |
-  YouTube transcript extractor, video downloader, comment reader for AI agents. Extract transcripts FREE (zero API quota), search with filters, batch video details, download videos/audio. The most comprehensive YouTube skill — we analyzed 15+ tools and built the one that does everything.
-homepage: https://github.com/openclaw/openclaw
+  YouTube for OpenClaw — extract transcripts FREE (zero API quota), download 4K video & FLAC audio via yt-dlp, read comments, search with filters, batch video details. No API key needed for transcripts. The most comprehensive YouTube skill — we analyzed 15+ tools and built the one that does everything.
+homepage: https://github.com/globalcaos/clawdbot-moltbot-openclaw
 repository: https://github.com/globalcaos/clawdbot-moltbot-openclaw
 metadata:
   {
