@@ -15,13 +15,46 @@ Usage:
 
 import argparse
 import json
-import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 DEFAULT_GRAPH_PATH = "memory/ontology/graph.jsonl"
 DEFAULT_SCHEMA_PATH = "memory/ontology/schema.yaml"
+
+
+def resolve_safe_path(
+    user_path: str,
+    *,
+    root: Path | None = None,
+    must_exist: bool = False,
+    label: str = "path",
+) -> Path:
+    """Resolve user path within root and reject traversal outside it."""
+    if not user_path or not user_path.strip():
+        raise SystemExit(f"Invalid {label}: empty path")
+
+    safe_root = (root or Path.cwd()).resolve()
+    candidate = Path(user_path).expanduser()
+    if not candidate.is_absolute():
+        candidate = safe_root / candidate
+
+    try:
+        resolved = candidate.resolve(strict=False)
+    except OSError as exc:
+        raise SystemExit(f"Invalid {label}: {exc}") from exc
+
+    try:
+        resolved.relative_to(safe_root)
+    except ValueError:
+        raise SystemExit(
+            f"Invalid {label}: must stay within workspace root '{safe_root}'"
+        )
+
+    if must_exist and not resolved.exists():
+        raise SystemExit(f"Invalid {label}: file not found '{resolved}'")
+
+    return resolved
 
 
 def generate_id(type_name: str) -> str:
@@ -452,6 +485,22 @@ def main():
     schema_p.add_argument("--file", "-f", help="Schema fragment file (YAML or JSON)")
     
     args = parser.parse_args()
+    workspace_root = Path.cwd().resolve()
+
+    if hasattr(args, "graph"):
+        args.graph = str(
+            resolve_safe_path(args.graph, root=workspace_root, label="graph path")
+        )
+    if hasattr(args, "schema"):
+        args.schema = str(
+            resolve_safe_path(args.schema, root=workspace_root, label="schema path")
+        )
+    if hasattr(args, "file") and args.file:
+        args.file = str(
+            resolve_safe_path(
+                args.file, root=workspace_root, must_exist=True, label="schema file"
+            )
+        )
     
     if args.command == "create":
         props = json.loads(args.props)
@@ -515,8 +564,6 @@ def main():
             incoming = json.loads(args.data)
         else:
             path = Path(args.file)
-            if not path.exists():
-                raise SystemExit(f"Schema fragment file not found: {args.file}")
             if path.suffix.lower() == ".json":
                 with open(path) as f:
                     incoming = json.load(f)
