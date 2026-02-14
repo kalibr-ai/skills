@@ -79,7 +79,7 @@ def acknowledge_notifications(notifications: list, headers: dict, api_base: str)
         return
     
     url = f"{api_base}/api/dawg-pack/notifications/ack"
-    data = {"notification_ids": notification_ids}
+    data = {"ids": notification_ids}
     
     try:
         response = requests.post(url, headers=headers, json=data, timeout=15)

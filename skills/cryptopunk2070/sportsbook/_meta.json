@@ -3,9 +3,15 @@
   "slug": "sportsbook",
   "displayName": "Sportsbook Skill",
   "latest": {
-    "version": "1.1.0",
-    "publishedAt": 1770958042060,
-    "commit": "https://github.com/openclaw/skills/commit/d037561d960dc7776d3fe5d12a8efa856ce38081"
+    "version": "1.1.1",
+    "publishedAt": 1771039135376,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.1.0",
+      "publishedAt": 1770958042060,
+      "commit": "https://github.com/openclaw/skills/commit/d037561d960dc7776d3fe5d12a8efa856ce38081"
+    }
+  ]
 }
