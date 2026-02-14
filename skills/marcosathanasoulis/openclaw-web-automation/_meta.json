@@ -3,11 +3,16 @@
   "slug": "openclaw-web-automation",
   "displayName": "Openclaw Web Automation",
   "latest": {
-    "version": "1.0.5",
-    "publishedAt": 1771053064036,
-    "commit": "https://github.com/openclaw/skills/commit/87600fdf651e2ed6647628361ac10a1ca8d875cb"
+    "version": "1.0.7",
+    "publishedAt": 1771062834605,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.5",
+      "publishedAt": 1771053064036,
+      "commit": "https://github.com/openclaw/skills/commit/87600fdf651e2ed6647628361ac10a1ca8d875cb"
+    },
     {
       "version": "1.0.1",
       "publishedAt": 1771049156560,

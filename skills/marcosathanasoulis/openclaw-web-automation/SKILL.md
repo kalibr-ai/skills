@@ -1,91 +1,47 @@
 ---
-name: openclaw-web-automation
-description: Automates web interactions for public checks and authenticated workflows, with credential references, human-mediated CAPTCHA handling, optional 2FA orchestration, and optional iMessage task-completion notifications.
+name: openclaw-web-automation-basic
+description: Use this skill when the user wants quick, no-credential browser automation against public websites (summaries, keyword checks, simple page facts). Runs the local OpenClaw Automation Kit query path and returns structured results.
 ---
 
-# OpenClaw Web Automation (Unified)
+# OpenClaw Web Automation (No Credentials)
 
-This skill supports both:
-- Basic mode: public-site checks with no credentials
-- Advanced mode: authenticated flows with `credential_refs` and optional iMessage notifications
+This skill is the fastest path for public-site automation tasks.
 
-Setup metadata:
-- `setup.json` in this folder lists prerequisites and verification steps.
+Use this for requests like:
+- "Summarize https://www.yahoo.com"
+- "Check whether https://example.com mentions pricing"
+- "Count mentions of 'news' on a public page"
 
-## Trust boundary
+Do not use this skill for login-required tasks. Use award/login flows instead.
 
-This skill is a launcher. It delegates execution to your local
-`openclaw_automation.cli run-query` implementation from `openclaw-automation-kit`.
-Optional iMessage notifications delegate to a local BlueBubbles connector module if installed.
+## Preconditions
 
-## Examples
+- Repository is available locally.
+- Python environment is installed (`pip install -e .`).
+- No credentials are required for this skill.
 
-Basic:
+## Command to run
 
-```bash
-python skills/openclaw-web-automation/scripts/run_query.py \
-  --query "Check yahoo.com and tell me the top headlines"
-```
-
-Preflight:
+From repo root:
 
 ```bash
-python -m openclaw_automation.cli doctor --json
+python skills/openclaw-web-automation-basic/scripts/run_query.py --query "<user request>"
 ```
 
-Advanced (credentialed):
+The script routes to `examples/public_page_check` and returns JSON.
 
-```bash
-python skills/openclaw-web-automation/scripts/run_query.py \
-  --query "Search United award travel economy from SFO to AMS in next 30 days under 120k miles" \
-  --credential-refs-file /secure/path/credential_refs.json
-```
+## Output handling
 
-Where `/secure/path/credential_refs.json` contains:
-
-```json
-{
-  "airline_username": "openclaw/united/username",
-  "airline_password": "openclaw/united/password"
-}
-```
-
-Optional iMessage notify (dry run by default):
-
-```bash
-python skills/openclaw-web-automation/scripts/run_query.py \
-  --query "Search ANA economy from SFO to HND in next 30 days under 120k" \
-  --credential-refs '{"airline_username":"openclaw/ana/username","airline_password":"openclaw/ana/password"}' \
-  --notify-imessage "+1XXXXXXXXXX"
-```
-
-Actually send notification:
-
-```bash
-python skills/openclaw-web-automation/scripts/run_query.py \
-  --query "Search ANA economy from SFO to HND in next 30 days under 120k" \
-  --credential-refs '{"airline_username":"openclaw/ana/username","airline_password":"openclaw/ana/password"}' \
-  --notify-imessage "+1XXXXXXXXXX" \
-  --send-notification
-```
+- Return a concise summary to the user:
+  - page title
+  - keyword
+  - keyword count
+  - 1-3 highlights
+- If the query has no URL, default to `https://www.yahoo.com`.
+- If parsing fails, ask the user for a URL and what text to check.
 
 ## Safety
 
-- Use `credential_refs` only; do not place raw passwords in command args.
-- Prefer `--credential-refs-file` or `--credential-refs-env` over inline `--credential-refs` to reduce shell-history exposure.
-- If inline refs are used, this launcher passes them to the backend via stdin (not argv).
-- Keep human-in-the-loop for 2FA/CAPTCHA steps.
-- Do not use on sites/accounts you are not authorized to access.
-
-## Dependency note
-
-This skill is a launcher and delegates execution to `python -m openclaw_automation.cli run-query`
-from your local `openclaw-automation-kit` installation.  
-Optional iMessage notifications require the BlueBubbles connector module to be installed locally.
-
-Optional environment variable:
-- `OPENCLAW_AUTOMATION_ROOT`: path to trusted local `openclaw-automation-kit` checkout.
-
-## Reliability notes
-
-- The launcher applies short retry/backoff for transient runtime errors (for example temporary rate limits/timeouts).
+- Public websites only.
+- No credential collection.
+- No anti-bot bypass guidance.
