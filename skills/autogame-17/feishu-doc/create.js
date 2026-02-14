@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { program } = require('commander');
 const Lark = require('@larksuiteoapi/node-sdk');
-const env = require('../../common/env');
+const env = require('../common/env');
 
 env.load(); // Load environment variables
 
@@ -14,7 +14,8 @@ function getClient() {
     return new Lark.Client({
         appId: APP_ID,
         appSecret: APP_SECRET,
-        disableTokenCache: false
+        disableTokenCache: false,
+        loggerLevel: 1 // Explicit 1 (ERROR)
     });
 }
 

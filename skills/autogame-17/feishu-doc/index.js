@@ -32,10 +32,20 @@ const BLOCK_TYPE_NAMES = {
 
 // --- Helpers ---
 
+function extractToken(input) {
+    if (!input) return input;
+    // Handle full URLs: https://.../docx/TOKEN or /wiki/TOKEN
+    const match = input.match(/\/(?:docx|wiki|doc|sheet|file|base)\/([a-zA-Z0-9]+)/);
+    if (match) return match[1];
+    return input;
+}
+
 async function resolveToken(docToken) {
+    // Ensure we have a clean token first
+    const cleanToken = extractToken(docToken);
     const accessToken = await getToken();
     try {
-        const wikiNode = await resolveWiki(docToken, accessToken);
+        const wikiNode = await resolveWiki(cleanToken, accessToken);
         if (wikiNode) {
             const { obj_token, obj_type } = wikiNode;
             if (obj_type === 'docx' || obj_type === 'doc') {
@@ -47,7 +57,7 @@ async function resolveToken(docToken) {
     } catch (e) {
         // Ignore resolution errors
     }
-    return docToken; // Default fallback
+    return cleanToken; // Default fallback
 }
 
 async function batchInsertBlocks(targetToken, blocks) {
@@ -122,19 +132,32 @@ async function batchInsertBlocks(targetToken, blocks) {
 
 // --- Actions ---
 
+async function resolveDoc(docToken) {
+    const resolved = await resolveToken(docToken);
+    if (!resolved) throw new Error('Could not resolve token');
+    // Normalize return
+    if (typeof resolved === 'string') return { token: resolved, type: 'docx' };
+    return resolved;
+}
+
 async function readDoc(docToken) {
     const accessToken = await getToken();
+    const cleanToken = extractToken(docToken);
 
     try {
-        return await readDocxDirect(docToken);
+        return await readDocxDirect(cleanToken);
     } catch (e) {
         // Code 1770002 = Not Found (often means it's a wiki token not a doc token)
         // Code 1061001 = Permission denied (sometimes happens with wiki wrappers)
-        const isNotFound = e.message.includes('not found') || e.message.includes('1770002');
+        // "Request failed with status code 404" = Generic Axios/HTTP error
+        const isNotFound = e.message.includes('not found') || 
+                           e.message.includes('1770002') || 
+                           e.message.includes('status code 404') ||
+                           e.message.includes('HTTP 404');
         
         if (isNotFound) {
             try {
-                const wikiNode = await resolveWiki(docToken, accessToken);
+                const wikiNode = await resolveWiki(cleanToken, accessToken);
                 if (wikiNode) {
                     const { obj_token, obj_type } = wikiNode;
                     
@@ -370,22 +393,38 @@ if (require.main === module) {
 
     (async () => {
         try {
+            const token = extractToken(opts.token);
+            
             if (opts.action === 'read') {
-                console.log(JSON.stringify(await readDoc(opts.token), null, 2));
+                console.log(JSON.stringify(await readDoc(token), null, 2));
+            } else if (opts.action === 'resolve') {
+                console.log(JSON.stringify(await resolveDoc(token), null, 2));
             } else if (opts.action === 'create') {
                 console.log(JSON.stringify(await createDoc(opts.title), null, 2));
             } else if (opts.action === 'write') {
-                console.log(JSON.stringify(await writeDoc(opts.token, opts.content), null, 2));
+                console.log(JSON.stringify(await writeDoc(token, opts.content), null, 2));
             } else if (opts.action === 'append') {
-                console.log(JSON.stringify(await appendDoc(opts.token, opts.content), null, 2));
+                console.log(JSON.stringify(await appendDoc(token, opts.content), null, 2));
             } else {
                 console.error('Unknown action');
+                process.exit(1);
             }
         } catch (e) {
-            console.error(e.message);
+            // Enhanced Error Reporting for JSON-expecting agents
+            const errorObj = {
+                code: 1,
+                error: e.message,
+                msg: e.message
+            };
+            
+            if (e.message.includes('HTTP 400') || e.message.includes('400')) {
+                errorObj.tip = "Check if the token is valid (docx/...) and not a URL or wiki link without resolution.";
+            }
+            
+            console.error(JSON.stringify(errorObj, null, 2));
             process.exit(1);
         }
     })();
 }
 
-module.exports = { readDoc, createDoc, writeDoc, appendDoc };
+module.exports = { readDoc, createDoc, writeDoc, appendDoc, resolveDoc };

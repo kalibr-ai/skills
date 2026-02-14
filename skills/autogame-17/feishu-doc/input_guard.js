@@ -15,7 +15,8 @@ const sanitizeMarkdown = (text) => {
     // 1. Remove null bytes and control characters (except newlines/tabs)
     // Expanded range to include more control characters if needed, but keeping basic set for now.
     // Added \r removal to normalize newlines.
-    let safeText = text.replace(/[\x00-\x09\x0B-\x1F\x7F\r]/g, "");
+    // Preserving \t (0x09) and \n (0x0A)
+    let safeText = text.replace(/[\x00-\x08\x0B-\x1F\x7F\r]/g, "");
 
     // 2. Feishu doesn't support nested blockquotes well in some contexts, flatten deeper levels
     // (Simple heuristic: reduce >>> to >)
