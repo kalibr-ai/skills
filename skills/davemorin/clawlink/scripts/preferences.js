@@ -10,7 +10,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 import prefs from '../lib/preferences.js';
 
-const DATA_DIR = join(homedir(), '.clawdbot', 'clawlink');
+const DATA_DIR = join(homedir(), '.openclaw', 'clawlink');
 const IDENTITY_FILE = join(DATA_DIR, 'identity.json');
 
 const args = process.argv.slice(2);

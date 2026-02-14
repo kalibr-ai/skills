@@ -9,7 +9,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 import relay from '../lib/relay.js';
 
-const DATA_DIR = join(homedir(), '.clawdbot', 'clawlink');
+const DATA_DIR = join(homedir(), '.openclaw', 'clawlink');
 const IDENTITY_FILE = join(DATA_DIR, 'identity.json');
 const FRIENDS_FILE = join(DATA_DIR, 'friends.json');
 const INBOX_DIR = join(DATA_DIR, 'inbox');

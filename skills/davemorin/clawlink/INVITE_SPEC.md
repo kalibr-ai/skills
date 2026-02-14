@@ -177,7 +177,7 @@ Headers: X-ClawLink-Key, X-ClawLink-Timestamp, X-ClawLink-Signature
 
 ### Local Storage
 
-`~/.clawdbot/clawlink/invites.json`:
+`~/.openclaw/clawlink/invites.json`:
 ```json
 {
   "created": [

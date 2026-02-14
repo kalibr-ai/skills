@@ -10,7 +10,7 @@ import nacl from 'tweetnacl';
 import util from 'tweetnacl-util';
 
 const { encodeBase64, decodeBase64, decodeUTF8 } = util;
-const DATA_DIR = join(homedir(), '.clawdbot', 'clawlink');
+const DATA_DIR = join(homedir(), '.openclaw', 'clawlink');
 
 // Load identity
 const identity = JSON.parse(readFileSync(join(DATA_DIR, 'identity.json'), 'utf8'));

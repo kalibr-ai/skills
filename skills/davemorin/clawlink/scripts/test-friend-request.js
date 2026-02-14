@@ -11,7 +11,7 @@ import crypto from '../lib/crypto.js';
 import relay from '../lib/relay.js';
 
 const SOPHIE_DIR = '/tmp/clawlink-sophie';
-const DAVE_DATA_DIR = join(homedir(), '.clawdbot', 'clawlink');
+const DAVE_DATA_DIR = join(homedir(), '.openclaw', 'clawlink');
 
 // Create Sophie's identity
 mkdirSync(SOPHIE_DIR, { recursive: true });

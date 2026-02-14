@@ -95,6 +95,8 @@ async function main() {
     if (toDeliver.length > 0) {
       const outputs = toDeliver.map(item => item.formatted);
       console.log(outputs.join('\n\n---\n\n'));
+    } else {
+      console.log('(no messages)');
     }
     
     // Log holds (for debugging, stderr so it doesn't affect output)

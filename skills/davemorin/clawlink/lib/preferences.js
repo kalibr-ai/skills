@@ -9,7 +9,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
-const DATA_DIR = join(homedir(), '.clawdbot', 'clawlink');
+const DATA_DIR = join(homedir(), '.openclaw', 'clawlink');
 const PREFS_FILE = join(DATA_DIR, 'preferences.json');
 const HELD_FILE = join(DATA_DIR, 'held_messages.json');
 

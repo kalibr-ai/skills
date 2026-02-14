@@ -21,21 +21,22 @@ export function formatForDelivery(message, prefs) {
   const greeting = getGreeting(message.from, style.greetingStyle, tone);
   if (greeting) parts.push(greeting);
   
-  // Context if enabled
-  if (prefs.delivery.includeContext && message.content?.context) {
-    parts.push(formatContext(message.content));
+  // Context if enabled - handle both message.content and direct message properties
+  const contentObj = message.content || message;
+  if (prefs.delivery.includeContext && contentObj?.context) {
+    parts.push(formatContext(contentObj));
   }
   
-  // Summary if enabled
-  if (prefs.delivery.summarizeFirst && message.content?.text?.length > 200) {
-    parts.push(summarize(message.content.text));
+  // Summary if enabled - handle both flattened and nested text
+  const messageText = message.text || message.content?.text || '';
+  if (prefs.delivery.summarizeFirst && messageText.length > 200) {
+    parts.push(summarize(messageText));
     parts.push('');
     parts.push('**Full message:**');
   }
   
-  // The actual message
-  const text = message.content?.text || JSON.stringify(message.content);
-  parts.push(adaptTone(text, tone));
+  // The actual message - use messageText we already extracted
+  parts.push(adaptTone(messageText || JSON.stringify(message), tone));
   
   // Timestamp
   parts.push('');

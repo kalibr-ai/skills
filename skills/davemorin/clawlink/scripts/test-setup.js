@@ -9,7 +9,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 
 const TEST_DIR = '/tmp/clawlink-test';
-const REAL_DATA_DIR = join(homedir(), '.clawdbot', 'clawlink');
+const REAL_DATA_DIR = join(homedir(), '.openclaw', 'clawlink');
 
 // Create test identity
 mkdirSync(TEST_DIR, { recursive: true });

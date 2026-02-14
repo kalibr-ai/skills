@@ -17,7 +17,7 @@ import relay from '../lib/relay.js';
 import requests from '../lib/requests.js';
 import clawbot from '../lib/clawbot.js';
 
-const DATA_DIR = join(homedir(), '.clawdbot', 'clawlink');
+const DATA_DIR = join(homedir(), '.openclaw', 'clawlink');
 const TEST_RESULTS = [];
 
 function log(test, passed, details = '') {

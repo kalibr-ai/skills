@@ -32,6 +32,31 @@ node scripts/install.js      # Adds to HEARTBEAT.md
 node cli.js setup "Your Name"
 ```
 
+### Migrating from older versions
+
+If you have existing ClawLink data in `~/.clawdbot/clawlink`, run:
+
+```bash
+node scripts/migrate.js      # Copies data to ~/.openclaw/clawlink
+```
+
+Note: If `~/.clawdbot` is symlinked to `~/.openclaw` (common setup), no migration is needed.
+
+### Installation Side Effects
+
+The install script (`scripts/install.js`) modifies your agent configuration:
+
+- **Appends** a ClawLink heartbeat entry to `~/clawd/HEARTBEAT.md`
+- Does **NOT** modify any other files or agent settings
+- Does **NOT** touch other skills or global agent behavior
+
+To uninstall:
+```bash
+node scripts/uninstall.js    # Removes ClawLink section from HEARTBEAT.md
+```
+
+Or manually delete the `## ClawLink` section from HEARTBEAT.md.
+
 ## Quick Start for Clawbot
 
 Use the handler for JSON output:
@@ -140,7 +165,7 @@ Recipients control how they receive messages:
 
 ## Data Location
 
-All ClawLink data stored at: `~/.config/clawbot/clawlink/`
+All ClawLink data stored at: `~/.openclaw/clawlink/`
 
 - `identity.json` — Your Ed25519 keypair
 - `friends.json` — Friend list with shared secrets

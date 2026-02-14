@@ -10,7 +10,7 @@ import { join } from 'path';
 import crypto from '../lib/crypto.js';
 import relay from '../lib/relay.js';
 
-const DATA_DIR = join(homedir(), '.clawdbot', 'clawlink');
+const DATA_DIR = join(homedir(), '.openclaw', 'clawlink');
 const IDENTITY_FILE = join(DATA_DIR, 'identity.json');
 const FRIENDS_FILE = join(DATA_DIR, 'friends.json');
 const OUTBOX_DIR = join(DATA_DIR, 'outbox');
