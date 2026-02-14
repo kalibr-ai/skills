@@ -1,0 +1,76 @@
+{
+  "name": "curated-search",
+  "version": "1.0.0",
+  "description": "Domain-restricted full-text search over curated whitelist",
+  "author": "Qrusher",
+  "license": "MIT",
+  "openclaw": ">=2025.2.9",
+  "keywords": ["search", "curated", "documentation", "openclaw"],
+  "tools": [
+    {
+      "name": "search",
+      "description": "Search the curated index for technical documentation",
+      "handler": "scripts/search.js",
+      "parameters": [
+        {
+          "name": "query",
+          "type": "string",
+          "description": "Search query terms",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "description": "Maximum results (capped by config.max_limit)",
+          "optional": true,
+          "default": 5
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "description": "Filter to specific domain (e.g., docs.python.org)",
+          "optional": true
+        },
+        {
+          "name": "min_score",
+          "type": "number",
+          "description": "Minimum relevance score (0.0-1.0)",
+          "optional": true,
+          "default": 0.0
+        },
+        {
+          "name": "offset",
+          "type": "number",
+          "description": "Pagination offset (skip first N results)",
+          "optional": true,
+          "default": 0
+        }
+      ],
+      "return_type": "json",
+      "timeout": 30,
+      "success_exit_codes": [0]
+    }
+  ],
+  "requirements": [
+    "minisearch",
+    "minimist",
+    "yaml",
+    "robots-parser",
+    "node-fetch",
+    "jsdom"
+  ],
+  "setup": [
+    "npm install",
+    "npm run crawl   # optional: build initial index"
+  ],
+  "config": {
+    "index": {
+      "path": "data/index"
+    },
+    "search": {
+      "default_limit": 10,
+      "max_limit": 100,
+      "min_score": 0.0
+    }
+  }
+}
