@@ -1,8 +1,19 @@
 ---
 name: MySQL
-description: Write correct MySQL queries avoiding common pitfalls with character sets, indexes, and locking.
+slug: mysql
+version: 1.0.1
+description: Write correct MySQL queries with proper character sets, indexing, transactions, and production patterns.
 metadata: {"clawdbot":{"emoji":"🐬","requires":{"bins":["mysql"]},"os":["linux","darwin","win32"]}}
 ---
+
+## Quick Reference
+
+| Topic | File |
+|-------|------|
+| Index design deep dive | `indexes.md` |
+| Transactions and locking | `transactions.md` |
+| Query optimization | `queries.md` |
+| Production config | `production.md` |
 
 ## Character Set Traps
 
@@ -27,12 +38,14 @@ metadata: {"clawdbot":{"emoji":"🐬","requires":{"bins":["mysql"]},"os":["linux
 - `REPLACE INTO` deletes then inserts—changes auto-increment ID, triggers DELETE cascade
 - Check affected rows: 1 = inserted, 2 = updated (counter-intuitive)
 
-## Locking Gotchas
+## Locking Traps
 
 - `SELECT ... FOR UPDATE` locks rows—but gap locks may lock more than expected
 - InnoDB uses next-key locking—prevents phantom reads but can cause deadlocks
 - Lock wait timeout default 50s—`innodb_lock_wait_timeout` for adjustment
-- `FOR UPDATE SKIP LOCKED` exists in MySQL 8+—same queue pattern as PostgreSQL
+- `FOR UPDATE SKIP LOCKED` exists in MySQL 8+—queue pattern
+- InnoDB default isolation is REPEATABLE READ, not READ COMMITTED like PostgreSQL
+- Deadlocks are expected—code must catch and retry, not just fail
 
 ## GROUP BY Strictness
 
@@ -52,6 +65,7 @@ metadata: {"clawdbot":{"emoji":"🐬","requires":{"bins":["mysql"]},"os":["linux
 
 - `LIMIT offset, count` different order than PostgreSQL's `LIMIT count OFFSET offset`
 - `!=` and `<>` both work; prefer `<>` for SQL standard
+- No transactional DDL—`ALTER TABLE` commits immediately, can't rollback
 - Boolean is `TINYINT(1)`—`TRUE`/`FALSE` are just 1/0
 - `IFNULL(a, b)` instead of `COALESCE` for two args—though COALESCE works
 
