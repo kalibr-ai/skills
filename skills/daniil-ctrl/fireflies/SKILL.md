@@ -141,7 +141,12 @@ curl -s -X POST https://api.fireflies.ai/graphql \
 Get all meetings from last 7 days with specific participants:
 
 ```bash
-FROM_DATE=$(date -u -v-7d +"%Y-%m-%dT00:00:00.000Z")  # macOS
+# Date commands (pick based on your OS):
+# macOS:
+FROM_DATE=$(date -u -v-7d +"%Y-%m-%dT00:00:00.000Z")
+# Linux:
+# FROM_DATE=$(date -u -d '7 days ago' +"%Y-%m-%dT00:00:00.000Z")
+
 TO_DATE=$(date -u +"%Y-%m-%dT23:59:59.999Z")
 
 curl -s -X POST https://api.fireflies.ai/graphql \
@@ -252,12 +257,54 @@ Invoke-RestMethod -Uri "https://api.fireflies.ai/graphql" -Method POST -Headers 
 
 ---
 
+## Shareable Recording Links
+
+The API provides `transcript_url`, `video_url`, and `audio_url`, but for **sharing with external parties** (prospects, clients), use the **embed URL format**:
+
+```
+API transcript_url:  https://app.fireflies.ai/view/{id}           (requires Fireflies login)
+Embed URL:           https://share.fireflies.ai/embed/meetings/{id}  (no login required, permanent)
+```
+
+**Why use embed URLs:**
+- No Fireflies account required to view
+- Permanent link (doesn't expire like video_url/audio_url)
+- Better viewing experience (embedded player)
+
+**Construction:**
+```bash
+# Get meeting ID from API
+MEETING_ID=$(curl -s -X POST https://api.fireflies.ai/graphql \
+  -H "Authorization: Bearer $FIREFLIES_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ transcripts(mine:true,limit:1) { id } }"}' | jq -r '.data.transcripts[0].id')
+
+# Construct embed URL
+EMBED_URL="https://share.fireflies.ai/embed/meetings/${MEETING_ID}"
+echo "Share this: $EMBED_URL"
+```
+
+**Embed in HTML:**
+```html
+<iframe 
+  src="https://share.fireflies.ai/embed/meetings/{id}" 
+  width="640" 
+  height="360" 
+  frameborder="0" 
+  allow="autoplay; fullscreen; picture-in-picture" 
+  allowfullscreen>
+</iframe>
+```
+
+---
+
 ## Notes
 
+- **Dependencies**: Requires `curl` and `jq` (install: `sudo apt install jq` or `brew install jq`)
 - **Rate Limits**: Check with Fireflies support for current limits
 - **Pagination**: Use `limit` (max 50) and `skip` for large result sets
 - **Date Format**: Always use ISO 8601 format: `YYYY-MM-DDTHH:mm:ss.sssZ`
-- **Audio/Video URLs**: Expire after 24 hours, regenerate as needed
+- **Audio/Video URLs**: Expire after 24 hours, regenerate as needed (use embed URLs for permanent sharing)
 - **Analytics**: Requires Pro plan or higher
 - **Video Recording**: Must be enabled in dashboard settings
 
