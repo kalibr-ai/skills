@@ -17,10 +17,15 @@ A specialized AgentSkill for [OpenClaw](https://github.com/openclaw/openclaw) th
 2. Python 3 installed on the host machine.
 
 ### Configuration
-The skill expects the Figma token to be available in the environment:
+The skill **requires** the Figma token to be available in the environment:
 ```bash
 export FIGMA_TOKEN="your_figma_pat_here"
 ```
+
+**⚠️ Security Note:** The `FIGMA_TOKEN` is a sensitive API credential. The skill uses it to authenticate with the Figma API and download images from URLs returned by Figma. Ensure:
+- Only install this skill from trusted sources
+- Do not share your `FIGMA_TOKEN` with untrusted users
+- The token should be treated like a password
 
 ## Usage
 
@@ -55,6 +60,19 @@ python scripts/figma_tool.py get-comments <file_key>
 ```bash
 python scripts/figma_tool.py export <file_key> --ids <layer_id1,layer_id2> --format png --scale 2.0
 ```
+
+## Important Behavioral Notes
+
+**File Writing:** When exporting layers or components, the skill writes image files to the current working directory with names like `figma_export_<layer_id>.<format>`. Users should be aware of:
+- Where exported files will be written
+- That file exports will follow image URLs provided by the Figma API
+- Regular cleanup of exported files to avoid disk clutter
+
+**API Scope:** This skill communicates only with the official Figma API (`api.figma.com`). It does not:
+- Read unrelated files from your system
+- Write data to arbitrary endpoints
+- Modify Figma files (read-only operations)
+- Request additional credentials or environment variables
 
 ## Integration with OpenClaw
 

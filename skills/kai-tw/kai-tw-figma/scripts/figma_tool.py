@@ -4,14 +4,9 @@ import argparse
 import urllib.request
 import urllib.parse
 
-import ssl
-
 class FigmaClient:
-    BASE_URL = "https://api.api.figma.com/v1" # Wait, the URL was api.figma.com, why did I write api.api.figma.com?
-
     def __init__(self, token):
         self.token = token
-        self.context = ssl._create_unverified_context()
 
     def _request(self, endpoint, params=None):
         url = f"https://api.figma.com/v1/{endpoint}"
@@ -21,7 +16,7 @@ class FigmaClient:
         req = urllib.request.Request(url)
         req.add_header("X-Figma-Token", self.token)
         
-        with urllib.request.urlopen(req, context=self.context) as response:
+        with urllib.request.urlopen(req) as response:
             return json.loads(response.read().decode())
 
     def get_me(self):
@@ -29,6 +24,9 @@ class FigmaClient:
 
     def get_team_projects(self, team_id):
         return self._request(f"teams/{team_id}/projects")
+
+    def get_project_files(self, team_id, project_id):
+        return self._request(f"teams/{team_id}/projects/{project_id}/files")
 
     def get_file(self, file_key):
         return self._request(f"files/{file_key}")
@@ -48,6 +46,7 @@ def main():
     parser = argparse.ArgumentParser(description="Figma API Tool")
     parser.add_argument("action", choices=["get-file", "get-comments", "export", "get-me", "get-team-projects", "get-project-files"])
     parser.add_argument("id", nargs="?", help="The file key, team ID, or project ID")
+    parser.add_argument("id2", nargs="?", help="The project ID (for get-project-files)")
     parser.add_argument("--ids", help="Comma-separated layer IDs for export")
     parser.add_argument("--format", default="png", choices=["png", "jpg", "svg", "pdf"])
     parser.add_argument("--scale", type=float, default=1.0)
@@ -84,10 +83,10 @@ def main():
             result = client.get_team_projects(args.id)
             print(json.dumps(result, indent=2))
         elif args.action == "get-project-files":
-            if not args.id:
-                print("Error: project_id is required.")
+            if not args.id or not args.id2:
+                print("Error: team_id and project_id are required.")
                 return
-            result = client.get_project_files(args.id)
+            result = client.get_project_files(args.id, args.id2)
             print(json.dumps(result, indent=2))
         elif args.action == "export":
             if not args.id:
@@ -119,7 +118,7 @@ def main():
                 filename = f"figma_export_{safe_id}.{args.format}"
                 
                 try:
-                    with urllib.request.urlopen(image_url, context=client.context) as response:
+                    with urllib.request.urlopen(image_url) as response:
                         with open(filename, "wb") as f:
                             f.write(response.read())
                     print(f"Saved to {filename}")
