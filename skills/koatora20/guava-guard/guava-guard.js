@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * GuavaGuard v8.0.0 — Agent Skill Security Scanner + Runtime Guard + Soul Lock 🍈🛡️
+ * GuavaGuard v9.0.0 — Agent Skill Security Scanner + Runtime Guard + Soul Lock + SoulChain 🍈🛡️
  * 
  * Based on Snyk ToxicSkills taxonomy (8 threat categories)
  * + ClawHavoc campaign IoCs + Koi Security intel
@@ -9,6 +9,15 @@
  * + CVE-2026-25253 / Palo Alto IBC framework
  * + CyberArk Cognitive Context Theft research (Feb 2026)
  * + OWASP ASI01 Intent Capsule framework
+ * 
+ * v9.0 — SoulChain Edition:
+ * - On-chain identity verification via SoulRegistry.sol on Polygon
+ * - Zero-dep JSON-RPC: raw eth_call via fetch, no ethers.js/viem
+ * - 3-layer defense: L1 Static Scan + L2 Soul Lock + L3 SoulChain
+ * - --soulchain flag enables on-chain verification (default ON with --soul-lock)
+ * - --no-soulchain to disable on-chain checks (offline mode)
+ * - Graceful degradation: network failure → L3 skipped, L1+L2 still active
+ * - `verify` subcommand for standalone on-chain verification
  * 
  * v8.0 — Soul Lock Edition:
  * - Identity Hijacking detection (SOUL.md/IDENTITY.md write, copy, overwrite)
@@ -55,7 +64,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ===== CONFIGURATION =====
-const VERSION = '8.0.0';
+const VERSION = '9.0.0';
 
 const THRESHOLDS = {
   normal:  { suspicious: 30, malicious: 80 },
@@ -291,11 +300,14 @@ class GuavaGuard {
     this.summaryOnly = options.summaryOnly || false;
     this.checkDeps = options.checkDeps || false;
     this.soulLock = options.soulLock !== false; // default ON
+    this.soulchain = options.soulchain !== false; // default ON (when soulLock is ON)
+    this.soulchainConfig = options.soulchainConfig || {};
     this.scannerDir = path.resolve(__dirname);
     this.thresholds = this.strict ? THRESHOLDS.strict : THRESHOLDS.normal;
     this.findings = [];
     this.stats = { scanned: 0, clean: 0, low: 0, suspicious: 0, malicious: 0 };
     this.soulLockResults = null;
+    this.soulChainResults = null;
     this.ignoredSkills = new Set();
     this.ignoredPatterns = new Set();
     this.customRules = [];
@@ -513,6 +525,38 @@ class GuavaGuard {
     return results;
   }
 
+  // ── v9.0: SoulChain — On-Chain Verification ──
+  async _verifySoulChain(localHash) {
+    try {
+      const soulchain = require('./soulchain.js');
+      
+      // Load config from .guava-guard.json if it exists
+      let config = { ...this.soulchainConfig };
+      const configPath = path.join(process.env.HOME || '~', '.openclaw', 'guava-guard', 'soulchain.json');
+      if (fs.existsSync(configPath)) {
+        try {
+          const fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+          config = { ...fileConfig, ...config };
+        } catch { /* ignore bad config */ }
+      }
+
+      this.soulChainResults = await soulchain.verifySoulOnChain(localHash, config);
+      
+      if (!this.summaryOnly) {
+        console.log(soulchain.formatVerifyResult(this.soulChainResults));
+      }
+
+      return this.soulChainResults;
+    } catch (e) {
+      this.soulChainResults = { verified: false, error: e.message, registered: false };
+      if (!this.summaryOnly) {
+        console.log(`\n🍈⛓️  SoulChain: ⚠️ Module error: ${e.message}`);
+        console.log(`   L3 skipped — L1+L2 still active\n`);
+      }
+      return this.soulChainResults;
+    }
+  }
+
   // Load .guava-guard-ignore from scan directory
   loadIgnoreFile(scanDir) {
     const ignorePath = path.join(scanDir, '.guava-guard-ignore');
@@ -552,11 +596,22 @@ class GuavaGuard {
     console.log(`📦 Skills found: ${skills.length}`);
     if (this.strict) console.log(`⚡ Strict mode enabled`);
     if (this.soulLock) console.log(`🔒 Soul Lock: ENABLED`);
+    if (this.soulLock && this.soulchain) console.log(`⛓️  SoulChain: ENABLED`);
     console.log();
 
     // ── v8.0: Soul Lock integrity verification ──
     if (this.soulLock) {
       this.soulLockResults = this.verifySoulLock(dir);
+    }
+
+    // ── v9.0: SoulChain on-chain verification (async, but we block here) ──
+    // Note: scanDirectory becomes sync-ish; we store a promise and resolve in printSummary
+    if (this.soulLock && this.soulchain && this.soulLockResults) {
+      // Find the local SOUL.md hash from Soul Lock results
+      const soulFile = this.soulLockResults.files['SOUL.md'];
+      if (soulFile && soulFile.exists && soulFile.hash) {
+        this._soulchainPromise = this._verifySoulChain('0x' + soulFile.hash);
+      }
     }
 
     for (const skill of skills) {
@@ -1299,6 +1354,22 @@ class GuavaGuard {
         }
       }
     }
+
+    // v9: SoulChain status in summary
+    if (this.soulChainResults) {
+      const sc = this.soulChainResults;
+      if (sc.error) {
+        console.log(`⛓️  SoulChain: OFFLINE ⚠️ (${sc.error.slice(0, 60)})`);
+      } else if (!sc.registered) {
+        console.log(`⛓️  SoulChain: NOT REGISTERED ⚠️ (run registerSoul to anchor identity)`);
+      } else if (sc.verified) {
+        console.log(`⛓️  SoulChain: VERIFIED ✅ (on-chain hash match — L3 clear)`);
+      } else {
+        console.log(`⛓️  SoulChain: 🚨 VIOLATION (on-chain hash mismatch!)`);
+      }
+    } else if (this.soulchain && this.soulLock && this._soulchainPromise) {
+      console.log(`⛓️  SoulChain: VERIFYING... (awaiting Polygon RPC)`);
+    }
   }
 
   toJSON() {
@@ -1522,11 +1593,65 @@ ${skillRows || '<p style="color:#4ade80">✅ No threats detected.</p>'}
 // ===== CLI =====
 const args = process.argv.slice(2);
 
+// ── v9.0: `verify` subcommand ──
+if (args[0] === 'verify') {
+  const { verifySoulOnChain, getRegistryStats, formatVerifyResult, DEFAULT_CONFIG } = require('./soulchain.js');
+  const crypto = require('crypto');
+  
+  (async () => {
+    // Find SOUL.md
+    const workspacePaths = [
+      path.join(process.cwd(), 'SOUL.md'),
+      path.join(process.env.HOME || '~', '.openclaw', 'workspace', 'SOUL.md'),
+    ];
+    let soulPath = null;
+    for (const p of workspacePaths) {
+      if (fs.existsSync(p)) { soulPath = p; break; }
+    }
+    
+    if (!soulPath) {
+      console.error('❌ SOUL.md not found');
+      process.exit(2);
+    }
+
+    const content = fs.readFileSync(soulPath, 'utf-8');
+    const localHash = '0x' + crypto.createHash('sha256').update(content).digest('hex');
+    
+    // Load optional config
+    let config = {};
+    const configPath = path.join(process.env.HOME || '~', '.openclaw', 'guava-guard', 'soulchain.json');
+    if (fs.existsSync(configPath)) {
+      try { config = JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch {}
+    }
+    
+    // Override from CLI args
+    const walletIdx = args.indexOf('--wallet');
+    if (walletIdx >= 0 && args[walletIdx + 1]) config.agentWallet = args[walletIdx + 1];
+    const rpcIdx = args.indexOf('--rpc');
+    if (rpcIdx >= 0 && args[rpcIdx + 1]) config.rpcUrl = args[rpcIdx + 1];
+
+    const result = await verifySoulOnChain(localHash, config);
+    console.log(formatVerifyResult(result));
+
+    if (args.includes('--stats')) {
+      const stats = await getRegistryStats(config);
+      console.log(`\n📊 Registry: ${stats.totalAgents} agent(s), ${stats.totalGuavaLocked} $GUAVA locked`);
+    }
+
+    process.exit(result.verified ? 0 : result.error ? 2 : 1);
+  })().catch(e => { console.error('FATAL:', e); process.exit(2); });
+  return; // prevent rest of CLI from executing
+}
+
 if (args.includes('--help') || args.includes('-h')) {
   console.log(`
-🍈🛡️  GuavaGuard v${VERSION} — Agent Skill Security Scanner + Soul Lock
+🍈🛡️  GuavaGuard v${VERSION} — Agent Skill Security Scanner + Soul Lock + SoulChain
 
 Usage: node guava-guard.js [scan-dir] [options]
+       node guava-guard.js verify [--wallet <addr>] [--rpc <url>] [--stats]
+
+Subcommands:
+  verify              Standalone on-chain soul verification (no scan)
 
 Options:
   --verbose, -v       Detailed findings with categories and samples
@@ -1538,6 +1663,7 @@ Options:
   --summary-only      Only print the summary table
   --check-deps        Scan package.json for dependency chain risks
   --no-soul-lock      Disable identity file integrity checks (default: ON)
+  --no-soulchain      Disable on-chain verification (default: ON with soul-lock)
   --rules <file>      Load custom rules from JSON file
   --fail-on-findings  Exit code 1 if any findings (CI/CD)
   --help, -h          Show this help
@@ -1573,33 +1699,66 @@ const strict = args.includes('--strict');
 const summaryOnly = args.includes('--summary-only');
 const checkDeps = args.includes('--check-deps');
 const soulLock = !args.includes('--no-soul-lock'); // default ON
+const soulchain = !args.includes('--no-soulchain'); // default ON
 const failOnFindings = args.includes('--fail-on-findings');
 const rulesIdx = args.indexOf('--rules');
 const rulesFile = rulesIdx >= 0 ? args[rulesIdx + 1] : null;
 const scanDir = args.find(a => !a.startsWith('-') && a !== rulesFile) || process.cwd();
 
-const guard = new GuavaGuard({ verbose, selfExclude, strict, summaryOnly, checkDeps, soulLock, rulesFile });
+const guard = new GuavaGuard({ verbose, selfExclude, strict, summaryOnly, checkDeps, soulLock, soulchain, rulesFile });
 guard.scanDirectory(scanDir);
 
-if (jsonOutput) {
-  const outPath = path.join(scanDir, 'guava-guard-report.json');
-  fs.writeFileSync(outPath, JSON.stringify(guard.toJSON(), null, 2));
-  console.log(`\n📄 JSON report: ${outPath}`);
+// Wait for SoulChain async verification before reporting
+async function finalize() {
+  if (guard._soulchainPromise) {
+    await guard._soulchainPromise;
+  }
+
+  if (jsonOutput) {
+    const report = guard.toJSON();
+    // Add SoulChain to JSON report
+    if (guard.soulChainResults) {
+      report.soulchain = guard.soulChainResults;
+    }
+    const outPath = path.join(scanDir, 'guava-guard-report.json');
+    fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
+    console.log(`\n📄 JSON report: ${outPath}`);
+  }
+
+  if (sarifOutput) {
+    const outPath = path.join(scanDir, 'guava-guard.sarif');
+    fs.writeFileSync(outPath, JSON.stringify(guard.toSARIF(scanDir), null, 2));
+    console.log(`\n📄 SARIF report: ${outPath}`);
+  }
+
+  if (htmlOutput) {
+    const outPath = path.join(scanDir, 'guava-guard-report.html');
+    fs.writeFileSync(outPath, guard.toHTML());
+    console.log(`\n📄 HTML report: ${outPath}`);
+  }
+
+  // Print SoulChain final result (the async _verifySoulChain already printed detailed output)
+  if (guard.soulChainResults) {
+    const sc = guard.soulChainResults;
+    if (sc.error) {
+      console.log(`\n⛓️  SoulChain Result: OFFLINE ⚠️ (${sc.error.slice(0, 60)})`);
+    } else if (!sc.registered) {
+      console.log(`\n⛓️  SoulChain Result: NOT REGISTERED ⚠️`);
+    } else if (sc.verified) {
+      console.log(`\n⛓️  SoulChain Result: VERIFIED ✅ — 魂は無傷だ`);
+    } else {
+      console.log(`\n⛓️  SoulChain Result: 🚨 VIOLATION — on-chain hash mismatch!`);
+    }
+  }
+
+  // Exit codes
+  if (guard.stats.malicious > 0) process.exit(1);
+  if (guard.soulChainResults && !guard.soulChainResults.verified && guard.soulChainResults.registered && !guard.soulChainResults.error) {
+    console.log('\n🚨 SoulChain violation detected — exit code 3');
+    process.exit(3);
+  }
+  if (failOnFindings && guard.findings.length > 0) process.exit(1);
+  process.exit(0);
 }
 
-if (sarifOutput) {
-  const outPath = path.join(scanDir, 'guava-guard.sarif');
-  fs.writeFileSync(outPath, JSON.stringify(guard.toSARIF(scanDir), null, 2));
-  console.log(`\n📄 SARIF report: ${outPath}`);
-}
-
-if (htmlOutput) {
-  const outPath = path.join(scanDir, 'guava-guard-report.html');
-  fs.writeFileSync(outPath, guard.toHTML());
-  console.log(`\n📄 HTML report: ${outPath}`);
-}
-
-// Exit codes
-if (guard.stats.malicious > 0) process.exit(1);
-if (failOnFindings && guard.findings.length > 0) process.exit(1);
-process.exit(0);
+finalize().catch(e => { console.error('FATAL:', e); process.exit(2); });

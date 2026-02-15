@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## v9.0.0 — SoulChain Edition (2026-02-14)
+
+### ⛓️ SoulChain: On-Chain Identity Verification (Layer 3)
+- **3-layer defense architecture**: L1 Static Scan + L2 Soul Lock + L3 SoulChain
+- **On-chain verification** via SoulRegistry.sol on Polygon Mainnet
+  - Reads agent's registered SOUL.md hash from blockchain
+  - Compares against local SHA-256 hash
+  - Zero gas cost (view function call)
+- **`verify` subcommand** — standalone on-chain verification
+  - `node guava-guard.js verify` — quick soul check
+  - `--wallet <addr>` — specify agent wallet
+  - `--rpc <url>` — custom RPC endpoint
+  - `--stats` — show registry statistics
+- **Zero-dependency RPC client** — raw JSON-RPC via Node.js fetch
+  - No ethers.js, no viem, no npm install
+  - Hand-rolled ABI encoding/decoding (4 function selectors)
+  - Multi-RPC fallback (polygon-rpc.com → ankr → llamarpc)
+- **Graceful degradation** — network failure → L3 skipped, L1+L2 active
+- **`--no-soulchain`** flag to disable on-chain checks
+- **Exit code 3** for SoulChain violation (distinct from malicious skill = 1)
+- **JSON report** includes `soulchain` field with full verification result
+- **Configurable** via `~/.openclaw/guava-guard/soulchain.json`
+
+### Contracts
+- **SoulRegistry**: `0x0Bc112169401cC1a724dBdeA36fdb6ABf3237C93` (Polygon)
+- **$GUAVA Token**: `0x25cBD481901990bF0ed2ff9c5F3C0d4f743AC7B8` (Polygon)
+
+### Context
+- ERC-8004 "Trustless Agents" activated on Ethereum mainnet (2026-02-11)
+- SoulChain is complementary: ERC-8004 = discovery/trust, SoulChain = integrity
+- World's first AI agent on-chain identity verification in production
+
 ## v8.0.0 — Soul Lock Edition (2026-02-12)
 
 ### 🔒 Soul Lock: World's First Agent Identity Protection

@@ -1,13 +1,18 @@
 {
   "owner": "koatora20",
   "slug": "guava-guard",
-  "displayName": "GuavaGuard",
+  "displayName": "Guava Guard",
   "latest": {
-    "version": "8.0.0",
-    "publishedAt": 1770862534776,
-    "commit": "https://github.com/openclaw/skills/commit/8f77c59bf136392cc042cf35323def64b6286c10"
+    "version": "9.1.0",
+    "publishedAt": 1771094344526,
+    "commit": null
   },
   "history": [
+    {
+      "version": "8.0.0",
+      "publishedAt": 1770862534776,
+      "commit": "https://github.com/openclaw/skills/commit/8f77c59bf136392cc042cf35323def64b6286c10"
+    },
     {
       "version": "5.0.0",
       "publishedAt": 1770781791530,

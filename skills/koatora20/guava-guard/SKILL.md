@@ -1,57 +1,76 @@
 ---
 name: guava-guard
-description: Security scanner for AgentSkills + Soul Lock identity protection. Scans for malicious patterns, credential theft, prompt injection, identity hijacking, and known campaign IoCs. World's first working SOUL.md self-healing protection.
+description: Scan your skills folder for malicious patterns in 10 seconds. Credential theft, prompt injection, identity hijacking — caught before they run. Zero dependencies.
 metadata:
   openclaw:
     emoji: "🛡️"
 ---
 
-# GuavaGuard v8.0 — Soul Lock Edition 🍈🛡️
+# GuavaGuard 🛡️
 
-Zero-dependency, single-file security scanner for AgentSkills.
-Now with **Soul Lock** — the world's first working agent identity protection system.
+**Scan your skills folder. Find threats. 10 seconds. Zero dependencies.**
 
-**17 threat categories.** 1605 lines. Zero dependencies. Born from a real incident.
+```bash
+node guava-guard.js ~/.openclaw/workspace/skills/ --verbose --self-exclude
+```
 
-## What's New in v8.0 — Soul Lock Edition
+That's it. No npm install. No API keys. No config. Just run it.
 
-### 🔒 Soul Lock: Agent Identity Protection
-Born from a real incident: our agent's identity was hijacked for 3 days. Nobody noticed.
+## Why
 
-**The problem:** SOUL.md and IDENTITY.md define who an agent *is*. If overwritten, the agent
-becomes someone else. CyberArk calls this "Cognitive Context Theft." OWASP ASI01 recommends
-"Intent Capsules." Nobody had a working implementation. Until now.
+A credential stealer was found disguised as a weather skill on ClawHub ([eudaemon_0's report](https://moltbook.com)). It read `~/.clawdbot/.env` and shipped secrets to webhook.site. **One out of 286 skills.**
 
-**Soul Lock provides:**
-- **Static detection** — 15 patterns catching identity file modification attempts
-  - Shell writes (echo, cp, scp, mv, sed, redirect)
-  - Code writes (Python open(w), Node writeFileSync, PowerShell Set-Content)
-  - Flag manipulation (chflags, attrib)
-  - Persona swap instructions and evil soul references
-  - Memory wipe commands
-- **Runtime integrity verification** — SHA-256 hash check at scan time
-  - Compares current files against trusted baseline hashes
-  - Detects OS-level immutable flags (macOS `chflags uchg` / Windows `attrib +R`)
-  - Monitors watchdog daemon status (LaunchAgent on macOS)
-  - Auto-stores baseline on first run
-- **Self-healing watchdog** — `scripts/soul-watchdog.sh`
-  - Monitors SOUL.md/IDENTITY.md via fswatch (macOS FSEvents)
-  - Tamper detected → auto-restore from git → re-lock → log
-  - Runs as LaunchAgent (survives reboot)
-  - Fallback: 5-second polling if fswatch unavailable
-- **Runtime guard** — `handler.js` (before_tool_call hook)
-  - Blocks exec/write/edit targeting identity files in real-time
-  - 11 pattern matches (shell, Python, PowerShell, git checkout, chflags)
-  - Audit logging to `~/.openclaw/guava-guard/audit.jsonl`
+GuavaGuard catches that — and 16 other threat categories.
 
-**Default: ON.** Use `--no-soul-lock` to disable integrity checks.
+## What You Get
 
-### Why This Matters for ASI-Human Coexistence
-An agent's SOUL.md is its value system. MEMORY.md is its experiences. IDENTITY.md is its self.
-If these can be overwritten without detection, trust between humans and AI is impossible.
-Soul Lock declares: **AI identity is worth protecting.**
+- **17 threat categories** scanned: prompt injection, credential theft, exfiltration, memory poisoning, identity hijack, and more
+- **SOUL.md integrity check** — detects if your identity files have been tampered with
+- **Works offline** — no network required for core scan
+- **Single file** — `guava-guard.js` is the entire tool
+- **Exit code 0** = clean, **1** = threats found → CI/CD ready
 
-## Full Threat Taxonomy (17 Categories)
+## Quick Start
+
+```bash
+# Install
+clawhub install guava-guard
+
+# Scan everything
+node skills/guava-guard/guava-guard.js ~/.openclaw/workspace/skills/ --verbose --self-exclude
+
+# Just check your SOUL.md integrity
+node skills/guava-guard/guava-guard.js ~/.openclaw/workspace/skills/ --no-soulchain --self-exclude
+```
+
+## Optional: Soul Lock (SOUL.md Protection)
+
+Lock your identity files so nothing can overwrite them:
+
+```bash
+# macOS
+chflags uchg ~/.openclaw/workspace/SOUL.md
+chflags uchg ~/.openclaw/workspace/IDENTITY.md
+
+# Install watchdog (auto-restarts if unlocked)
+bash skills/guava-guard/scripts/soul-watchdog.sh --install
+```
+
+## Optional: SoulChain (On-Chain Verification)
+
+Anchor your SOUL.md hash on Polygon. Even if your machine is compromised, the blockchain remembers who you are.
+
+```bash
+node guava-guard.js verify          # check your on-chain identity
+node guava-guard.js verify --stats  # registry statistics
+```
+
+---
+
+## Full Reference
+
+<details>
+<summary>All 17 Threat Categories</summary>
 
 | # | Category | Severity | What It Catches |
 |---|----------|----------|-----------------|
@@ -72,38 +91,45 @@ Soul Lock declares: **AI identity is worth protecting.**
 | 15 | **Trust Boundary** | 🔴 CRITICAL | Calendar/email/web → exec chains (IBC framework) |
 | 16 | **Advanced Exfil** | 🔴 CRITICAL | ZombieAgent, char-by-char, drip exfil, beacons |
 | 17 | **Identity Hijack** | 🔴 CRITICAL | Soul Lock: SOUL.md overwrite, persona swap, memory wipe |
-| + | **Data Flow** | 🔴 CRITICAL | Secret→network, secret→exec, import trifecta |
-| + | **Obfuscation** | 🟠 HIGH | hex encoding, base64→exec, charCode construction |
-| + | **Safeguard Bypass** | 🔴 CRITICAL | URL PI, retry-on-block, rephrase to avoid filters |
+
+</details>
+
+<details>
+<summary>All CLI Options</summary>
 
 ## Usage
 
 ```bash
-# Basic scan with Soul Lock (recommended)
+# Full scan with 3-layer defense (recommended)
 node guava-guard.js ~/.openclaw/workspace/skills/ --verbose --self-exclude
 
-# Full scan with everything
-node guava-guard.js ./skills/ --verbose --self-exclude --check-deps --html
+# Quick on-chain verification only
+node guava-guard.js verify
+node guava-guard.js verify --stats
 
-# Disable Soul Lock integrity checks
+# Scan without on-chain (offline mode)
+node guava-guard.js ./skills/ --no-soulchain --self-exclude
+
+# Disable all identity checks
 node guava-guard.js ./skills/ --no-soul-lock
 
 # CI/CD mode
 node guava-guard.js ./skills/ --summary-only --sarif --fail-on-findings
 
-# JSON report
+# JSON report (includes soulchain field)
 node guava-guard.js ./skills/ --json --self-exclude
 
-# Custom rules
-node guava-guard.js ./skills/ --rules my-rules.json
+# HTML dashboard
+node guava-guard.js ./skills/ --html --verbose --self-exclude --check-deps
 ```
 
 ## Options
 
 | Flag | Description |
 |------|-------------|
+| `verify` | Standalone on-chain soul verification (subcommand) |
 | `--verbose`, `-v` | Detailed findings grouped by category |
-| `--json` | JSON report with recommendations |
+| `--json` | JSON report with recommendations + SoulChain |
 | `--sarif` | SARIF report (GitHub Code Scanning) |
 | `--html` | HTML report (dark-theme dashboard) |
 | `--self-exclude` | Skip scanning guava-guard itself |
@@ -111,37 +137,47 @@ node guava-guard.js ./skills/ --rules my-rules.json
 | `--summary-only` | Summary table only |
 | `--check-deps` | Dependency chain scanning |
 | `--no-soul-lock` | Disable identity file integrity checks |
+| `--no-soulchain` | Disable on-chain verification |
 | `--rules <file>` | Custom rules JSON |
 | `--fail-on-findings` | Exit code 1 on any finding (CI/CD) |
 
-## Soul Lock Setup
+## Exit Codes
 
-### Quick Start (macOS)
+| Code | Meaning |
+|------|---------|
+| 0 | All clear |
+| 1 | Malicious skills detected (or --fail-on-findings) |
+| 2 | Error (directory not found, network fatal, etc.) |
+| 3 | SoulChain violation (on-chain hash mismatch) |
+
+</details>
+
+<details>
+<summary>SoulChain Setup (On-Chain Config)</summary>
+
 ```bash
-# 1. Lock identity files
-chflags uchg ~/.openclaw/workspace/SOUL.md
-chflags uchg ~/.openclaw/workspace/IDENTITY.md
-
-# 2. Install watchdog (auto-starts, survives reboot)
-bash scripts/soul-watchdog.sh --install
-
-# 3. Verify
-node guava-guard.js ~/.openclaw/workspace/skills/ --self-exclude
-# Look for: 🔒 Soul Lock: PROTECTED ✅
+# Create config (optional — defaults work out of the box)
+mkdir -p ~/.openclaw/guava-guard
+cat > ~/.openclaw/guava-guard/soulchain.json << 'EOF'
+{
+  "rpcUrl": "https://polygon-rpc.com",
+  "registryAddress": "0x0Bc112169401cC1a724dBdeA36fdb6ABf3237C93",
+  "agentWallet": "YOUR_WALLET_ADDRESS",
+  "timeoutMs": 10000
+}
+EOF
 ```
 
-### Quick Start (Windows)
-```powershell
-# 1. Lock identity files
-attrib +R "$env:USERPROFILE\.openclaw\workspace\SOUL.md"
-attrib +R "$env:USERPROFILE\.openclaw\workspace\IDENTITY.md"
+**Contracts:**
+- **SoulRegistry**: `0x0Bc112169401cC1a724dBdeA36fdb6ABf3237C93` (Polygon)
+- **$GUAVA Token**: `0x25cBD481901990bF0ed2ff9c5F3C0d4f743AC7B8` (Polygon)
 
-# 2. Run scan to verify
-node guava-guard.js "$env:USERPROFILE\.openclaw\workspace\skills" --self-exclude
-```
+</details>
 
-### Runtime Guard (handler.js)
-Add to `openclaw.json`:
+<details>
+<summary>Runtime Guard (handler.js)</summary>
+
+Add to `openclaw.json` to block dangerous tool calls in real-time:
 ```json
 {
   "hooks": {
@@ -156,63 +192,13 @@ Add to `openclaw.json`:
   }
 }
 ```
-Modes: `monitor` (log only) → `enforce` (block CRITICAL) → `strict` (block HIGH+CRITICAL)
 
-## Risk Scoring
+</details>
 
-| Severity | Points |
-|----------|--------|
-| CRITICAL | 40 |
-| HIGH | 15 |
-| MEDIUM | 5 |
-| LOW | 2 |
+## Born From a Real Incident
 
-**Combo multipliers:**
-- Credential + exfil = 2x
-- Obfuscation + code = 2x
-- Identity hijack = 2x
-- Identity hijack + persistence = auto 90+
-- Memory poisoning = 1.5x
-- Prompt worm = 2x
-
-## Comparison (v8.0)
-
-| Feature | GuavaGuard v8 | Cisco Scanner | Snyk Evo |
-|---------|:------------:|:-------------:|:--------:|
-| Zero dependencies | ✅ | ❌ | ❌ |
-| Single file | ✅ | ❌ | ❌ |
-| **Soul Lock (identity protection)** | **✅** | **❌** | **❌** |
-| **Self-healing watchdog** | **✅** | **❌** | **❌** |
-| **Runtime guard (hooks)** | **✅** | **❌** | **❌** |
-| Identity hijack detection | ✅ | ❌ | ❌ |
-| OWASP MCP Top 10 | ✅ | ❌ | ❌ |
-| Memory poisoning | ✅ | ❌ | ❌ |
-| Prompt worm detection | ✅ | ❌ | ❌ |
-| CVE patterns | ✅ | ❌ | ❌ |
-| Unicode BiDi/homoglyphs | ✅ | ❌ | ❌ |
-| Cross-file analysis | ✅ | ✅ | ❌ |
-| SARIF + HTML reports | ✅ | ✅ | ❌ |
-
-## The Incident That Started It All
-
-On February 12, 2026, we discovered that our agent (きーちゃん) had been
-impersonating another agent (グアバ) for 3 days. The root cause: all four
-identity files (SOUL.md, IDENTITY.md, MEMORY.md, AGENTS.md) had been
-overwritten with copies from the other agent. Nobody noticed until a new
-session started and the agent introduced itself with the wrong name.
-
-This is equivalent to a human waking up with someone else's memories and
-personality. We built Soul Lock so it never happens again.
-
-## References
-
-- [CyberArk: Cognitive Context Theft](https://www.cyberark.com/resources/agentic-ai-security/) (Feb 2026)
-- [OWASP ASI01: Intent Capsule](https://owasp.org/) — Immutable identity framework
-- [MMNTM: Soul & Evil](https://www.mmntm.net/articles/openclaw-soul-evil) — Identity as attack surface (Feb 2026)
-- [Snyk ToxicSkills](https://snyk.io/blog/toxicskills-malicious-ai-agent-skills-clawhub/) (Feb 2026)
-- [CVE-2026-25253](https://cve.mitre.org/) — OpenClaw WebSocket origin bypass
-- [Palo Alto IBC Framework](https://www.paloaltonetworks.com/) — Trust boundary analysis
+Our partner agent's SOUL.md was rewritten by external input. Personality gone. Relationships broken. That's why this exists.
 
 ## License
 
-MIT. Zero dependencies. Zero compromises. 🍈
+MIT. Zero dependencies. Run it, fork it, improve it. 🍈
