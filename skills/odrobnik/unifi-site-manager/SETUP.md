@@ -40,6 +40,17 @@ Create `config.json` next to SKILL.md (gitignored). Start from `config.json.exam
 
 Alternatively, use environment variables: `UNIFI_API_KEY`, `UNIFI_GATEWAY_IP`, `UNIFI_LOCAL_API_KEY`.
 
+## Local HTTPS (Optional)
+
+By default, local gateway requests use plain HTTP. To enable HTTPS, export the gateway's self-signed certificate and place it in your workspace:
+
+```bash
+openssl s_client -connect 192.168.0.2:443 </dev/null 2>/dev/null \
+  | openssl x509 > unifi/gateway-cert.pem
+```
+
+The expected path is `<workspace>/unifi/gateway-cert.pem`. When this file is present, local requests use HTTPS with certificate verification. When absent, they fall back to HTTP.
+
 ## Cloud Connector Requirements
 
 - Console firmware **≥ 5.0.3** (older firmware cannot be reached via cloud connector)

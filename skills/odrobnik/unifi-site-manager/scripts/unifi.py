@@ -13,9 +13,6 @@ from pathlib import Path
 
 import requests
 import re
-import urllib3
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def _sanitize_path_param(value: str) -> str:
@@ -40,16 +37,13 @@ def _load_config() -> Dict[str, Any]:
             "Missing UniFi API key. Set UNIFI_API_KEY or create config.json (see config.json.example)."
         )
 
-    base_url = os.environ.get("UNIFI_BASE_URL") or cfg.get("base_url") or "https://api.ui.com"
-
     cfg["api_key"] = api_key
-    cfg["base_url"] = base_url
     return cfg
 
 
 CONFIG = _load_config()
 API_KEY = CONFIG["api_key"]
-BASE_URL = CONFIG["base_url"]
+BASE_URL = "https://api.ui.com"
 
 
 # ---------------------------------------------------------------------------
@@ -99,13 +93,14 @@ def api_request(path: str) -> Dict[str, Any]:
 
 def _local_api_request(path: str, gateway_ip: str, api_key: str) -> Dict[str, Any]:
     """Make an integration API request to the local UniFi gateway."""
-    url = f"http://{gateway_ip}/proxy/network/integration{path}"
+    base, verify = _local_base_url(gateway_ip)
+    url = f"{base}/proxy/network/integration{path}"
     headers = {
         "X-API-KEY": api_key,
         "Accept": "application/json",
     }
     try:
-        resp = requests.get(url, headers=headers, timeout=15)
+        resp = requests.get(url, headers=headers, timeout=15, verify=verify)
         if not resp.ok:
             _handle_api_error(resp, url)
         return resp.json()
@@ -120,7 +115,8 @@ def _local_api_request(path: str, gateway_ip: str, api_key: str) -> Dict[str, An
 def _local_classic_request(path: str, gateway_ip: str, api_key: str, method: str = "GET",
                            payload: Optional[Dict] = None) -> Dict[str, Any]:
     """Make a classic API request to the local UniFi gateway."""
-    url = f"http://{gateway_ip}/proxy/network/api/s/default/{path}"
+    base, verify = _local_base_url(gateway_ip)
+    url = f"{base}/proxy/network/api/s/default/{path}"
     headers = {
         "X-API-KEY": api_key,
         "Accept": "application/json",
@@ -128,9 +124,9 @@ def _local_classic_request(path: str, gateway_ip: str, api_key: str, method: str
     try:
         if method == "PUT" and payload is not None:
             headers["Content-Type"] = "application/json"
-            resp = requests.put(url, headers=headers, json=payload, timeout=15)
+            resp = requests.put(url, headers=headers, json=payload, timeout=15, verify=verify)
         else:
-            resp = requests.get(url, headers=headers, timeout=15)
+            resp = requests.get(url, headers=headers, timeout=15, verify=verify)
         if not resp.ok:
             _handle_api_error(resp, url)
         return resp.json()
@@ -149,6 +145,39 @@ def _resolve_local_gateway() -> Tuple[str, str]:
     if not gateway_ip or not local_api_key:
         return None, None
     return gateway_ip, local_api_key
+
+
+def _local_gateway_cert() -> Optional[str]:
+    """Return the path to the gateway TLS certificate if it exists, else None.
+
+    Looks for <workspace>/unifi/gateway-cert.pem. Workspace is resolved
+    from CWD (preferred) or by walking up from the script location.
+    """
+    candidates = [Path.cwd()]
+    # Walk up from the *unresolved* script path (preserves symlink context)
+    d = Path(__file__).parent
+    for _ in range(6):
+        candidates.append(d)
+        if d == d.parent:
+            break
+        d = d.parent
+    for root in candidates:
+        cert = root / "unifi" / "gateway-cert.pem"
+        if cert.is_file():
+            return str(cert)
+    return None
+
+
+def _local_base_url(gateway_ip: str) -> Tuple[str, Any]:
+    """Return (base_url, verify) for local gateway requests.
+
+    Uses HTTPS with cert verification when gateway-cert.pem is present,
+    otherwise falls back to plain HTTP.
+    """
+    cert = _local_gateway_cert()
+    if cert:
+        return f"https://{gateway_ip}", cert
+    return f"http://{gateway_ip}", True
 
 
 def _get_console_id() -> Optional[str]:
@@ -222,9 +251,10 @@ def _is_local_reachable() -> bool:
         _is_local_reachable._cached = False
         return False
     try:
-        resp = requests.get(f"http://{gateway_ip}/proxy/network/api/s/default/self",
+        base, verify = _local_base_url(gateway_ip)
+        resp = requests.get(f"{base}/proxy/network/api/s/default/self",
                             headers={"X-API-KEY": local_api_key, "Accept": "application/json"},
-                            timeout=3)
+                            timeout=3, verify=verify)
         _is_local_reachable._cached = resp.ok
     except (requests.ConnectionError, requests.Timeout):
         _is_local_reachable._cached = False
