@@ -38,7 +38,7 @@ Initialize GateCrash Forms in my current project directory
 Set up your SMTP credentials globally:
 
 ```bash
-gatecrash-forms config smtp.host smtp.zoho.in
+gatecrash-forms config smtp.host smtp.example.com
 gatecrash-forms config smtp.port 465
 gatecrash-forms config smtp.secure true
 gatecrash-forms config smtp.auth.user your-email@example.com

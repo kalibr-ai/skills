@@ -1,6 +1,6 @@
 ---
 name: gatecrash-forms
-description: CLI-first form builder with BYOK philosophy. Generate beautiful HTML forms from JSON schemas, handle submissions via your own SMTP server, store responses locally. We crash gates, we don't build new ones.
+description: CLI-first form builder with BYOK philosophy. Generate beautiful HTML forms from JSON schemas, handle submissions via your own SMTP server, store responses locally. Kimi Claw native. We crash gates, we don't build new ones.
 metadata:
   {
     "openclaw":
@@ -26,6 +26,16 @@ metadata:
 **CLI-first form builder with BYOK (Bring Your Own Keys) philosophy**
 
 Generate beautiful, secure HTML forms from JSON schemas. Email notifications via YOUR SMTP server, response storage on YOUR infrastructure. No external services, no gatekeeping.
+
+## ✨ Kimi Claw Ready
+
+**Perfect for Kimi's 24/7 cloud agents:**
+- ✅ Works natively in Kimi.com browser tabs
+- ✅ Installed via ClawHub's 5,000+ skill library
+- ✅ 40GB cloud storage for form responses
+- ✅ Agent-friendly email providers (agentmail.to, Resend)
+
+Your AI assistant can now generate and manage forms for you!
 
 ## Quick Start
 
@@ -65,7 +75,7 @@ Creates `forms/` and `responses/` directories with example forms.
 Set up your SMTP credentials globally:
 
 ```bash
-gatecrash-forms config smtp.host smtp.zoho.in
+gatecrash-forms config smtp.host smtp.example.com
 gatecrash-forms config smtp.port 465
 gatecrash-forms config smtp.secure true
 gatecrash-forms config smtp.auth.user your-email@example.com

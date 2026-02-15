@@ -3,9 +3,15 @@
   "slug": "gatecrash-forms",
   "displayName": "GateCrash Forms",
   "latest": {
-    "version": "0.1.0",
-    "publishedAt": 1771154691108,
-    "commit": "https://github.com/openclaw/skills/commit/022fb4a6b44a57152eddddb61d6a49f36b153f9d"
+    "version": "0.2.0",
+    "publishedAt": 1771164759951,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1771154691108,
+      "commit": "https://github.com/openclaw/skills/commit/022fb4a6b44a57152eddddb61d6a49f36b153f9d"
+    }
+  ]
 }
