@@ -1,6 +1,6 @@
 ---
 name: issue-prioritizer
-description: Prioritize GitHub issues by ROI, solution sanity, and architectural impact. Identifies quick wins, over-engineered proposals, and actionable bugs. Use for issue triage, contributor matching, and filtering non-actionable items. Read-only — never modifies repositories. Requires GitHub CLI (gh).
+description: Prioritize GitHub issues by ROI, solution sanity, and architectural impact. Use when triaging or ranking issues to identify quick wins, over-engineered proposals, and actionable bugs. Don't use when managing forks (use fork-manager) or general GitHub queries (use github). Read-only — never modifies repositories.
 metadata: {"openclaw": {"requires": {"bins": ["gh"]}}}
 ---
 
@@ -9,6 +9,18 @@ metadata: {"openclaw": {"requires": {"bins": ["gh"]}}}
 Analyze issues from a GitHub repository and rank them by **Adjusted Score** — ROI penalized by Tripping Scale (solution sanity), Architectural Impact, and Actionability.
 
 This is a **read-only skill**. It analyzes and presents information. The user makes all decisions.
+
+## When to use
+- Triaging or ranking issues in a repository
+- Identifying quick wins for contributors
+- Filtering out non-actionable items (questions, duplicates)
+- Detecting over-engineered proposals
+- Matching issues to contributor skill levels
+
+## When NOT to use
+- Managing forks or syncing with upstream → use `fork-manager` instead
+- General GitHub CLI queries (PR status, CI runs) → use `github` instead
+- Reviewing code changes before publishing → use `pr-review` instead
 
 ## Requirements
 
@@ -22,17 +34,51 @@ If the user didn't specify a repository, ask which one to analyze (format: `owne
 
 ### Step 2: Fetch Issues
 
+**Basic fetch (most recent):**
 ```bash
 gh issue list --repo {owner/repo} --state open --limit {limit} --json number,title,body,labels,createdAt,comments,url
 ```
 
 Default limit is 30. Store the full JSON response.
 
+**Targeted fetch with `--topic`:**
+
+When the user specifies `--topic <keyword>` (e.g. `--topic telegram`, `--topic agents`), use GitHub search to find issues matching that topic instead of just fetching the most recent:
+
+```bash
+# Search by topic keywords in title and body
+gh issue list --repo {owner/repo} --state open --limit {limit} --search "{topic} in:title,body" --json number,title,body,labels,createdAt,comments,url
+```
+
+Multiple topics can be combined: `--topic "telegram agents"` searches for issues containing either term.
+
+**Targeted fetch with `--search`:**
+
+When the user specifies `--search <query>`, pass it directly as a GitHub search query for full control:
+
+```bash
+gh issue list --repo {owner/repo} --state open --limit {limit} --search "{query}" --json number,title,body,labels,createdAt,comments,url
+```
+
+Examples:
+- `--search "telegram in:title"` — only title matches
+- `--search "label:bug telegram"` — bugs mentioning telegram
+- `--search "label:bug,enhancement telegram agents"` — bugs or enhancements about telegram/agents
+- `--search "comments:>5 telegram"` — active discussions about telegram
+
+**Label-based fetch with `--label`:**
+
+```bash
+gh issue list --repo {owner/repo} --state open --limit {limit} --label "{label}" --json number,title,body,labels,createdAt,comments,url
+```
+
+All fetch modes can be combined: `--topic telegram --label bug --limit 50` fetches up to 50 open bugs about telegram.
+
 **Error handling:**
 - Auth error → tell user to run `gh auth login`
 - Rate limited → inform user, suggest reducing `--limit`
 - Repo not found → check format `owner/repo`
-- No issues → report and exit
+- No issues → report and exit (if using --topic/--search, suggest broadening the query)
 - Missing fields → treat null/missing body and labels as empty
 
 ### Step 3: Filter Issues with Existing PRs
@@ -208,6 +254,7 @@ Sort all issues by AdjustedScore descending.
 ═══════════════════════════════════════════════════════════════
   ISSUE PRIORITIZATION REPORT
   Repository: {owner/repo}
+  Filter: {topic/search/label or "latest"}
   Analyzed: {count} issues
   Excluded: {excluded} issues with existing PRs
 ═══════════════════════════════════════════════════════════════
@@ -325,6 +372,9 @@ Sort all issues by AdjustedScore descending.
 - `--quick-wins`: Show only quick wins
 - `--level beginner|intermediate|advanced`: Filter by contributor level
 - `--limit N`: Number of issues to analyze (default: 30)
+- `--topic <keywords>`: Search issues by topic (e.g. `--topic telegram`, `--topic "agents telegram"`)
+- `--search <query>`: Raw GitHub search query for full control (e.g. `--search "label:bug telegram in:title"`)
+- `--label <name>`: Filter by GitHub label (e.g. `--label bug`)
 - `--include-with-prs`: Skip PR filtering, include all issues
 
 ## LLM Deep Analysis (Optional)
