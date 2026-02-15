@@ -1,0 +1,11 @@
+{
+  "owner": "foscomputerservices",
+  "slug": "fosmvvm-fluent-datamodel-generator",
+  "displayName": "FOSMVVM Fluent DataModel Generator",
+  "latest": {
+    "version": "2.0.6",
+    "publishedAt": 1771098271697,
+    "commit": null
+  },
+  "history": []
+}
