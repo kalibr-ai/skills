@@ -1,11 +1,17 @@
 {
   "owner": "adolago",
   "slug": "meta-business",
-  "displayName": "Meta Business",
+  "displayName": "Meta Business CLI",
   "latest": {
-    "version": "0.1.0",
-    "publishedAt": 1771059404084,
-    "commit": "https://github.com/openclaw/skills/commit/af0ef69836ab5a8a82460e91edee4f68ef1c4489"
+    "version": "1.1.0",
+    "publishedAt": 1771156879269,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1771059404084,
+      "commit": "https://github.com/openclaw/skills/commit/af0ef69836ab5a8a82460e91edee4f68ef1c4489"
+    }
+  ]
 }

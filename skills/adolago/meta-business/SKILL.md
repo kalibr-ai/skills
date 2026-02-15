@@ -43,9 +43,15 @@ Surface config
 WhatsApp commands
 
 - Send text: `meta wa send "+1234567890" --text "Hello" --json`
+- Send with markdown: `meta wa send "+1234567890" --text "**bold** and _italic_" --markdown --json` (converts Markdown to WhatsApp formatting)
+- Send chunked: `meta wa send "+1234567890" --text "very long message..." --chunk --json` (splits long text into multiple messages)
 - Send image: `meta wa send "+1234567890" --image "https://example.com/photo.jpg" --caption "Look" --json`
-- Send template: `meta wa send "+1234567890" --template "hello_world" --template-lang en_US --json`
+- Send video: `meta wa send "+1234567890" --video "https://example.com/video.mp4" --caption "Watch" --json`
 - Send document: `meta wa send "+1234567890" --document "https://example.com/file.pdf" --json`
+- Send audio: `meta wa send "+1234567890" --audio "https://example.com/note.ogg" --json`
+- Send voice note: `meta wa send "+1234567890" --audio "./recording.ogg" --voice --json` (renders as playable voice note in WhatsApp)
+- Send template: `meta wa send "+1234567890" --template "hello_world" --template-lang en_US --json`
+- Mark as read: `meta wa read WAMID --json`
 - List templates: `meta wa template list --json`
 - Get template: `meta wa template get TEMPLATE_NAME --json`
 - Delete template: `meta wa template delete TEMPLATE_NAME --json`
@@ -53,6 +59,26 @@ WhatsApp commands
 - Get media URL: `meta wa media url MEDIA_ID --json`
 - Download media: `meta wa media download MEDIA_ID ./output.jpg`
 - View analytics: `meta wa analytics --days 30 --granularity DAY --json`
+
+Phone number management
+
+- List numbers: `meta wa phone list --json`
+- Get details: `meta wa phone get --json`
+- Select active: `meta wa phone select PHONE_NUMBER_ID`
+
+Allowlist (prompt injection protection)
+
+- List allowed: `meta wa allowlist list`
+- Add number: `meta wa allowlist add "+1234567890"`
+- Remove number: `meta wa allowlist remove "+1234567890"`
+- When the allowlist is non-empty, `meta wa send` only delivers to listed numbers.
+
+Webhook (inbound messages)
+
+- Start listener: `meta webhook listen --port 3000 --verify-token TOKEN --app-secret SECRET`
+- Test verification: `meta webhook verify --verify-token TOKEN --json`
+- Subscribe to events: `meta webhook subscribe --object whatsapp_business_account --fields messages --callback-url "https://example.com/webhook" --json`
+- Forward to endpoint: set `webhook.forwardUrl` in config to POST inbound messages to an external service (e.g. a Zee gateway). Messages are deduplicated and transformed to a standard PlatformMessage format.
 
 Instagram commands
 
@@ -81,12 +107,6 @@ Messenger commands
 - List conversations: `meta messenger receive --json`
 - View conversation: `meta messenger receive --conversation-id CONV_ID --json`
 
-Webhook commands
-
-- Start listener: `meta webhook listen --port 3000 --verify-token TOKEN --app-secret SECRET`
-- Test verification: `meta webhook verify --verify-token TOKEN --json`
-- Subscribe to events: `meta webhook subscribe --object whatsapp_business_account --fields messages --callback-url "https://example.com/webhook" --json`
-
 Diagnostics
 
 - `meta doctor --json` checks config, credentials, token validity, Graph API connectivity, permissions, and surface-specific asset access.
@@ -100,4 +120,6 @@ Notes
 - WhatsApp requires phone number ID and business account ID to be configured.
 - Instagram publish requires a public URL for images/videos (not local files).
 - Messenger messaging outside the 24h window requires a message tag.
+- Voice notes require OGG/Opus format to render correctly in WhatsApp.
+- The webhook auto-sends read receipts and acknowledges reactions for inbound messages.
 - Run `meta doctor` before first use to verify setup.
