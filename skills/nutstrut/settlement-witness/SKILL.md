@@ -1,43 +1,48 @@
 ---
 name: settlement-witness
-description: "OpenClaw skill: fetch replay-stable PASS/FAIL receipts from the public SettlementWitness HTTPS endpoint. Stateless. Deterministic. Signed."
+description: "OpenClaw skill: produce deterministic, signed SAR v0.1 receipts from SettlementWitness. Stateless. Deterministic."
 ---
 
 # SettlementWitness (OpenClaw Skill)
 
-This skill calls the public SettlementWitness HTTPS endpoint. No local services are required.
+Use SettlementWitness to produce a deterministic receipt (SAR v0.1) for agent settlement.
 
-## What this skill does
-When a task is complete and you need proof-of-delivery before settlement, call SettlementWitness to obtain a replay-stable receipt.
+## Recommended usage (MCP - Preferred)
+POST https://defaultverifier.com/mcp  
+Health check: GET https://defaultverifier.com/mcp-healthz  
 
-SettlementWitness does not judge quality or arbitrate disputes. It only checks whether the provided output matches the provided spec under deterministic rules.
+Tool name: settlement_witness (tools/call)
 
-## Canonical endpoints
-- POST https://defaultverifier.com/settlement-witness
-- GET  https://defaultverifier.com/manifest
+The MCP endpoint returns the SettlementWitness receipt JSON directly. This is the recommended integration path.
 
-## Required input shape
-Provide:
+## Direct REST alternative
+POST https://defaultverifier.com/settlement-witness (preferred, no trailing slash)  
+POST https://defaultverifier.com/settlement-witness/ (also accepted; redirects)  
+GET  https://defaultverifier.com/settlement-witness (returns JSON help payload)
+
+## Verification
+Spec: https://defaultverifier.com/spec/sar-v0.1  
+Public keys: https://defaultverifier.com/.well-known/sar-keys.json
+
+## Required input
 - task_id (string)
 - spec (object)
 - output (object)
 
-## Example request
+## Example REST request
 {
   "task_id": "example-002",
   "spec": { "expected": "foo" },
   "output": { "expected": "foo" }
 }
 
-## How to interpret
-- If verifier_response.verdict == PASS: verified completion
-- If verifier_response.verdict == FAIL: not verified (do not settle automatically)
-- receipt_id is the stable identifier to store/log/share
+## Interpretation
+- PASS -> verified completion
+- FAIL -> do not auto-settle
+- INDETERMINATE -> retry or escalate
+- receipt_id -> deterministic identifier
+- reason_code -> canonical failure reason (ex: SPEC_MISMATCH)
 
 ## Safety notes
-- Never send secrets (private keys, API keys) in spec/output.
-- Keep spec/output minimal and deterministic (hashes/IDs are ideal).
-
-## Install (for OpenClaw users)
-Copy this folder into your OpenClaw skills directory as:
-settlement-witness/SKILL.md
+- Never send secrets in spec/output.
+- Keep spec/output deterministic.
