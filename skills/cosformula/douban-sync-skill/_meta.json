@@ -3,11 +3,16 @@
   "slug": "douban-sync-skill",
   "displayName": "Douban Sync",
   "latest": {
-    "version": "0.2.0",
-    "publishedAt": 1771060016664,
-    "commit": "https://github.com/openclaw/skills/commit/bc85f80f9afa5ee3ea1ded5d8691285fe91364c5"
+    "version": "0.2.2",
+    "publishedAt": 1771136322332,
+    "commit": null
   },
   "history": [
+    {
+      "version": "0.2.0",
+      "publishedAt": 1771060016664,
+      "commit": "https://github.com/openclaw/skills/commit/bc85f80f9afa5ee3ea1ded5d8691285fe91364c5"
+    },
     {
       "version": "0.1.4",
       "publishedAt": 1770976158859,
