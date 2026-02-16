@@ -1,6 +1,6 @@
 # TeX Render
 
-Renders LaTeX math to PNG, JPEG, WebP, or AVIF images so formulas can be shown as pictures in chat, docs, or slides. Uses **MathJax** (TeX → SVG) and **@svg-fns/svg2img** (SVG → raster) with Sharp.
+Renders LaTeX math to PNG, JPEG, WebP, or AVIF images so formulas can be shown as pictures in chat, docs, or slides. Uses [**MathJax**](https://github.com/mathjax/MathJax) (TeX → SVG) and [**@svg-fns/svg2img**](https://github.com/svg-fns/svg-fns) (SVG → raster) with Sharp.
 
 ## What It Does
 
@@ -94,5 +94,5 @@ And in the Examples section:
 
 ## License / Credits
 
-- **MathJax**: TeX → SVG.
-- **@svg-fns/svg2img**: SVG → raster (Sharp).
+- [**MathJax**](https://github.com/mathjax/MathJax): TeX → SVG.
+- [**@svg-fns/svg2img**](https://github.com/svg-fns/svg-fns): SVG → raster (Sharp).

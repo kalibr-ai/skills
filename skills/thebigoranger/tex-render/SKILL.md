@@ -4,13 +4,6 @@ description: Renders LaTeX math to PNG, JPEG, WebP, or AVIF images using MathJax
 metadata:
   openclaw:
     emoji: 📐
-    install:
-      - kind: node
-        package: mathjax
-      - kind: node
-        package: "@svg-fns/svg2img"
-      - kind: node
-        package: sharp
 ---
 
 # TeX Render 📐
@@ -26,14 +19,15 @@ The render script lives in the **same skill folder** as this `SKILL.md`:
 ├── SKILL.md
 ├── package.json
 └── scripts/
-    └── render.js
+    ├─── render.js
+    └─── validate.js
 ```
 
 Use the **directory containing this SKILL.md** as the skill path. The script is at `scripts/render.js` relative to that folder. Invoke: `node <skill_folder>/scripts/render.js`. The agent loading this skill has the skill path—use it to run the script.
 
 ## Install
 
-One-time setup. `cd` into the skill folder (the directory containing this SKILL.md), then run:
+One-time setup. After `clawhub install tex-render`, run `npm install` in the skill folder:
 
 ```bash
 cd <skill_folder>
@@ -131,4 +125,8 @@ To make the agent use tex-render **without** the user explicitly asking, add to 
 ```
 
 **Test:** Ask "Explain the Lagrangian formula" without mentioning tex-render. The agent should render and send images.
+
+## Repository
+
+This package is maintained at [https://github.com/TheBigoranger/tex-render](https://github.com/TheBigoranger/tex-render). You can open issues there for bug reports and feature requests.
 

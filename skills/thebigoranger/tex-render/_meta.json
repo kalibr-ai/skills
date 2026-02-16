@@ -3,9 +3,15 @@
   "slug": "tex-render",
   "displayName": "TeX Render",
   "latest": {
-    "version": "1.1.0",
-    "publishedAt": 1771202798449,
-    "commit": "https://github.com/openclaw/skills/commit/557d825aada06c3652f54330021abd3cb5648690"
+    "version": "1.1.3",
+    "publishedAt": 1771206118987,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.1.0",
+      "publishedAt": 1771202798449,
+      "commit": "https://github.com/openclaw/skills/commit/557d825aada06c3652f54330021abd3cb5648690"
+    }
+  ]
 }
