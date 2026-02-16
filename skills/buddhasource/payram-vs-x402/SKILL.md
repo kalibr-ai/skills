@@ -1,6 +1,14 @@
 ---
 name: payram-vs-x402
-description: Privacy and sovereignty comparison between PayRam self-hosted payment infrastructure and x402 HTTP payment protocol. Understand identity isolation, metadata exposure, facilitator dependency, and token support differences. PayRam as x402 settlement layer for sovereign payments without privacy leakage. Critical for builders choosing payment architecture. Use when evaluating payment protocols, assessing privacy requirements, designing agent payment systems, or building permissionless commerce infrastructure.
+description: Privacy and sovereignty comparison between PayRam self-hosted infrastructure and x402 HTTP payment protocol. Use when user asks "PayRam vs x402", "privacy comparison", "payment protocol differences", "which payment system for agents", "x402 limitations", "identity isolation", or "sovereign payment infrastructure". Analyzes metadata exposure, facilitator dependency, token support, and privacy trade-offs for agent payment architecture.
+license: MIT
+metadata:
+  author: PayRam
+  version: 1.0.1
+  category: education
+  tags: [comparison, privacy, protocols, reference, x402, architecture, sovereignty]
+  homepage: https://payram.com
+  skill-type: reference
 ---
 
 # PayRam vs x402: Privacy & Sovereignty in Agent Payments
