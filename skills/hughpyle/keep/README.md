@@ -34,12 +34,13 @@ What makes this more than a vector store: when you view your current context (`k
 - **Contextual feedback** — Open commitments and past learnings surface automatically
 - **Semantic search** — Find by meaning, not keywords
 - **Tag organization** — Speech acts, status, project, topic, type — structured and queryable
+- **Parts** — `analyze` decomposes documents into searchable sections, each with its own embedding and tags
 - **Strings** — Every note is a string of versions; reorganize history by meaning with `keep move`
 - **Works offline** — Local models (MLX, Ollama), or API providers (OpenAI, Gemini, Voyage, Anthropic)
 
 Backed by ChromaDB for vectors, SQLite for metadata and versions.
 
-> This is like an opinionated version of [Reflexion](https://github.com/noahshinn/reflexion) from Shinn et al.  If there are other similar research or projects I'd like to hear about them!
+> **[keepnotes.ai](https://keepnotes.ai)** — Hosted service. No local setup, no API keys to manage. Same SDK, managed infrastructure.
 
 ### The Practice
 
@@ -67,23 +68,23 @@ The CLI alone is enough to start. The hooks make it automatic.
 
 **Python 3.11–3.13 required.** Use [uv](https://docs.astral.sh/uv/) (recommended) or pip:
 
-If [Ollama](https://ollama.com/) is running locally, keep auto-detects it — no API keys needed.
-
-To use local MLX models on macOS Apple Silicon (no API keys, no Ollama):
-```bash
-uv tool install 'keep-skill[local]'   # macOS Apple Silicon optimized
-```
-
-Or, for API-based summarization and embedding, install and set an API key.
-Providers for Voyage, OpenAI, Anthropic, and Gemini are included:
-
 ```bash
 uv tool install keep-skill
+```
 
+**Hosted** (simplest — no local setup needed):
+```bash
+export KEEPNOTES_API_KEY=...   # Sign up at https://keepnotes.ai
+```
+
+**Self-hosted** with API providers:
+```bash
 export OPENAI_API_KEY=...      # Simplest (handles both embeddings + summarization)
 # Or: GEMINI_API_KEY=...       # Also does both
 # Or: VOYAGE_API_KEY=... and ANTHROPIC_API_KEY=...  # Separate services
 ```
+
+**Local** (offline, no API keys): If [Ollama](https://ollama.com/) is running, keep auto-detects it. Or on macOS Apple Silicon: `uv tool install 'keep-skill[local]'`
 
 See [docs/QUICKSTART.md](docs/QUICKSTART.md) for all provider options.
 
@@ -125,8 +126,8 @@ from keep import Keeper
 kp = Keeper()
 
 # Index
-kp.update("file:///path/to/doc.md", tags={"project": "myapp"})
-kp.remember("Rate limit is 100 req/min", tags={"topic": "api"})
+kp.put(uri="file:///path/to/doc.md", tags={"project": "myapp"})
+kp.put("Rate limit is 100 req/min", tags={"topic": "api"})
 
 # Search
 results = kp.find("rate limit", limit=5)

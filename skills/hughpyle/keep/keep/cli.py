@@ -22,6 +22,9 @@ from typing_extensions import Annotated
 # Pattern for version identifier suffix: @V{N} where N is digits only
 VERSION_SUFFIX_PATTERN = re.compile(r'@V\{(\d+)\}$')
 
+# Pattern for part identifier suffix: @P{N} where N is digits only
+PART_SUFFIX_PATTERN = re.compile(r'@P\{(\d+)\}$')
+
 # URI scheme pattern per RFC 3986: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
 # Used to distinguish URIs from plain text in the update command
 _URI_SCHEME_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.-]*://')
@@ -31,6 +34,43 @@ from .config import get_tool_directory
 from .document_store import VersionInfo
 from .types import Item, local_date
 from .logging_config import configure_quiet_mode, enable_debug_mode
+
+# Maximum number of files to index from a directory at once
+MAX_DIR_FILES = 1000
+
+
+def _is_filesystem_path(source: str) -> Optional[Path]:
+    """Return resolved Path if source is an existing filesystem path, None otherwise.
+
+    Skips anything that looks like a URI (has ://). Uses expanduser + resolve.
+    Conservative: only matches if the path actually exists on disk.
+    """
+    if _URI_SCHEME_PATTERN.match(source):
+        return None
+    try:
+        resolved = Path(source).expanduser().resolve()
+        if resolved.exists():
+            return resolved
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def _list_directory_files(directory: Path) -> list[Path]:
+    """List regular files in a directory, sorted by name.
+
+    Skips symlinks, subdirectories, and hidden files (names starting with '.').
+    """
+    files = []
+    for entry in sorted(directory.iterdir()):
+        if entry.name.startswith("."):
+            continue
+        if entry.is_symlink():
+            continue
+        if entry.is_dir():
+            continue
+        files.append(entry)
+    return files
 
 
 def _output_width() -> int:
@@ -170,6 +210,7 @@ def _format_yaml_frontmatter(
     similar_items: Optional[list[Item]] = None,
     similar_offsets: Optional[dict[str, int]] = None,
     meta_sections: Optional[dict[str, list[Item]]] = None,
+    parts_manifest: Optional[list] = None,
 ) -> str:
     """
     Format item as YAML frontmatter with summary as content.
@@ -181,6 +222,7 @@ def _format_yaml_frontmatter(
         similar_items: Optional list of similar items to display
         similar_offsets: Version offsets for similar items (item.id -> offset)
         meta_sections: Optional dict of {name: [Items]} from meta-doc resolution
+        parts_manifest: Optional list of PartInfo from structural decomposition
 
     Note: Offset computation (v1, v2, etc.) assumes version_nav lists
     are ordered newest-first, matching list_versions() ordering.
@@ -237,6 +279,16 @@ def _format_yaml_frontmatter(
                 summary_preview = _truncate_summary(meta_item.summary, prefix_len)
                 lines.append(f"  - {mid.ljust(id_width)} {summary_preview}")
 
+    # Add parts manifest (structural decomposition)
+    if parts_manifest:
+        part_ids = [f"@P{{{p.part_num}}}" for p in parts_manifest]
+        id_width = max(len(s) for s in part_ids)
+        lines.append("parts:")
+        for part, pid in zip(parts_manifest, part_ids):
+            prefix_len = 4 + id_width + 1
+            summary_preview = _truncate_summary(part.summary, prefix_len)
+            lines.append(f"  - {pid.ljust(id_width)} {summary_preview}")
+
     # Add version navigation (just @V{N} since ID is shown at top, with date + summary)
     if version_nav:
         # Current offset (0 if viewing current)
@@ -277,11 +329,17 @@ def _format_summary_line(item: Item, id_width: int = 0) -> str:
         item: The item to format
         id_width: Minimum width for ID column (for alignment across items)
     """
-    # Get version-scoped ID (omit @V{0} for current version)
+    # Get version/part-scoped ID
     base_id = item.tags.get("_base_id", item.id)
+    part_num = item.tags.get("_part_num")
     version = item.tags.get("_version", "0")
-    version_suffix = f"@V{{{version}}}" if version != "0" else ""
-    versioned_id = f"{_shell_quote_id(base_id)}{version_suffix}"
+    if part_num:
+        suffix = f"@P{{{part_num}}}"
+    elif version != "0":
+        suffix = f"@V{{{version}}}"
+    else:
+        suffix = ""
+    versioned_id = f"{_shell_quote_id(base_id)}{suffix}"
 
     # Pad ID for column alignment
     padded_id = versioned_id.ljust(id_width) if id_width else versioned_id
@@ -409,6 +467,7 @@ def _format_item(
     similar_items: Optional[list[Item]] = None,
     similar_offsets: Optional[dict[str, int]] = None,
     meta_sections: Optional[dict[str, list[Item]]] = None,
+    parts_manifest: Optional[list] = None,
 ) -> str:
     """
     Format a single item for display.
@@ -426,6 +485,7 @@ def _format_item(
         similar_items: Similar items to display (triggers full format)
         similar_offsets: Version offsets for similar items
         meta_sections: Meta-doc resolved sections {name: [Items]}
+        parts_manifest: List of PartInfo for structural decomposition
     """
     if _get_ids_output():
         versioned_id = _format_versioned_id(item)
@@ -459,6 +519,15 @@ def _format_item(
                 ]
                 for name, items in meta_sections.items()
             }
+        if parts_manifest:
+            result["parts"] = [
+                {
+                    "part": p.part_num,
+                    "pid": f"{item.id}@P{{{p.part_num}}}",
+                    "summary": p.summary[:60],
+                }
+                for p in parts_manifest
+            ]
         if version_nav:
             current_offset = viewing_offset if viewing_offset is not None else 0
             result["version_nav"] = {}
@@ -489,13 +558,17 @@ def _format_item(
     # Full format when:
     # - --full flag is set
     # - version navigation or similar items are provided (can't display in summary)
-    if _get_full_output() or version_nav or similar_items or viewing_offset is not None or meta_sections:
-        return _format_yaml_frontmatter(item, version_nav, viewing_offset, similar_items, similar_offsets, meta_sections)
+    if _get_full_output() or version_nav or similar_items or viewing_offset is not None or meta_sections or parts_manifest:
+        return _format_yaml_frontmatter(
+            item, version_nav, viewing_offset,
+            similar_items, similar_offsets, meta_sections,
+            parts_manifest=parts_manifest,
+        )
     return _format_summary_line(item)
 
 
 def _versions_to_items(doc_id: str, current: Item | None, versions: list) -> list[Item]:
-    """Convert current item + archived VersionInfo list into Items for _format_items."""
+    """Convert current item + previous VersionInfo list into Items for _format_items."""
     items: list[Item] = []
     if current:
         items.append(current)
@@ -505,6 +578,20 @@ def _versions_to_items(doc_id: str, current: Item | None, versions: list) -> lis
         tags["_updated"] = v.created_at or ""
         tags["_updated_date"] = (v.created_at or "")[:10]
         items.append(Item(id=doc_id, summary=v.summary, tags=tags))
+    return items
+
+
+def _parts_to_items(doc_id: str, current: Item | None, parts: list) -> list[Item]:
+    """Convert current item + PartInfo list into Items for _format_items."""
+    items: list[Item] = []
+    if current:
+        items.append(current)
+    for p in parts:
+        tags = dict(p.tags)
+        tags["_part_num"] = str(p.part_num)
+        tags["_base_id"] = doc_id
+        tags["_updated"] = p.created_at or ""
+        items.append(Item(id=doc_id, summary=p.summary, tags=tags))
     return items
 
 
@@ -544,7 +631,10 @@ No embedding provider configured.
 
 To use keep, configure a provider:
 
-  API-based (recommended):
+  Hosted (simplest — no local setup):
+    export KEEPNOTES_API_KEY=...   # Sign up at https://keepnotes.ai
+
+  API-based:
     export VOYAGE_API_KEY=...      # Get at dash.voyageai.com
     export ANTHROPIC_API_KEY=...   # Optional: for better summaries
 
@@ -624,7 +714,7 @@ def _parse_tags(tags: Optional[list[str]]) -> dict[str, str]:
             typer.echo(f"Error: Invalid tag format '{tag}'. Use key=value", err=True)
             raise typer.Exit(1)
         k, v = tag.split("=", 1)
-        parsed[k] = v
+        parsed[k.casefold()] = v.casefold()
     return parsed
 
 
@@ -643,10 +733,11 @@ def _filter_by_tags(items: list, tags: list[str]) -> list:
     for t in tags:
         if "=" in t:
             key, value = t.split("=", 1)
+            key, value = key.casefold(), value.casefold()
             result = [item for item in result if item.tags.get(key) == value]
         else:
             # Key only - check if key exists
-            result = [item for item in result if t in item.tags]
+            result = [item for item in result if t.casefold() in item.tags]
     return result
 
 
@@ -690,7 +781,7 @@ def find(
     since: SinceOption = None,
     history: Annotated[bool, typer.Option(
         "--history", "-H",
-        help="Include archived versions of matching notes"
+        help="Include versions of matching notes"
     )] = False,
     show_all: Annotated[bool, typer.Option(
         "--all", "-a",
@@ -706,7 +797,7 @@ def find(
         keep find "auth" --text                 # Full-text search
         keep find --id file:///path/to/doc.md   # Find similar notes
         keep find "auth" -t project=myapp       # Search + filter by tag
-        keep find "auth" --history              # Include archived versions
+        keep find "auth" --history              # Include versions
     """
     if id and query:
         typer.echo("Error: Specify either a query or --id, not both", err=True)
@@ -724,11 +815,9 @@ def find(
     search_limit = limit * 5 if tag else limit
 
     if id:
-        results = kp.find_similar(id, limit=search_limit, since=since, include_self=include_self, include_hidden=show_all)
-    elif text:
-        results = kp.query_fulltext(query, limit=search_limit, since=since, include_hidden=show_all)
+        results = kp.find(similar_to=id, limit=search_limit, since=since, include_self=include_self, include_hidden=show_all)
     else:
-        results = kp.find(query, limit=search_limit, since=since, include_hidden=show_all)
+        results = kp.find(query, fulltext=text, limit=search_limit, since=since, include_hidden=show_all)
 
     # Post-filter by tags if specified
     if tag:
@@ -736,7 +825,7 @@ def find(
 
     results = results[:limit]
 
-    # Expand with archived versions if requested
+    # Expand with versions if requested
     if history:
         expanded: list[Item] = []
         for item in results:
@@ -758,7 +847,7 @@ def search(
     Search note summaries using full-text search (alias for find --text).
     """
     kp = _get_keeper(store)
-    results = kp.query_fulltext(query, limit=limit, since=since)
+    results = kp.find(query, fulltext=True, limit=limit, since=since)
     typer.echo(_format_items(results, as_json=_get_json_output()))
 
 
@@ -781,7 +870,11 @@ def list_recent(
     since: SinceOption = None,
     history: Annotated[bool, typer.Option(
         "--history", "-H",
-        help="Include archived versions in output"
+        help="Include versions in output"
+    )] = False,
+    parts: Annotated[bool, typer.Option(
+        "--parts", "-P",
+        help="Include structural parts (from analyze)"
     )] = False,
     show_all: Annotated[bool, typer.Option(
         "--all", "-a",
@@ -801,7 +894,8 @@ def list_recent(
         keep list --tags=              # List all tag keys
         keep list --tags=foo           # List values for tag 'foo'
         keep list --since P3D          # Notes updated in last 3 days
-        keep list --history            # Include archived versions
+        keep list --history            # Include versions
+        keep list --parts              # Include analyzed parts
     """
     kp = _get_keeper(store)
 
@@ -849,6 +943,18 @@ def list_recent(
 
     # Default: recent items
     results = kp.list_recent(limit=limit, since=since, order_by=sort, include_history=history, include_hidden=show_all)
+
+    # Expand with parts if requested
+    if parts:
+        expanded: list[Item] = []
+        for item in results:
+            part_list = kp.list_parts(item.id)
+            if part_list:
+                expanded.extend(_parts_to_items(item.id, item, part_list))
+            else:
+                expanded.append(item)
+        results = expanded
+
     typer.echo(_format_items(results, as_json=_get_json_output()))
 
 
@@ -894,13 +1000,122 @@ def tag_update(
     # Process each document
     results = []
     for doc_id in ids:
-        item = kp.tag(doc_id, tags=tag_changes)
+        try:
+            item = kp.tag(doc_id, tags=tag_changes)
+        except ValueError as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(1)
         if item is None:
             typer.echo(f"Not found: {doc_id}", err=True)
         else:
             results.append(item)
 
     typer.echo(_format_items(results, as_json=_get_json_output()))
+
+
+def _put_store(
+    kp: "Keeper",
+    source: Optional[str],
+    resolved_path: Optional[Path],
+    parsed_tags: dict,
+    id: Optional[str],
+    summary: Optional[str],
+    do_analyze: bool,
+) -> Optional["Item"]:
+    """Execute the store operation for put(). Returns Item, or None for directory mode."""
+    if source == "-" or (source is None and _has_stdin_data()):
+        # Stdin mode: explicit '-' or piped input
+        try:
+            content = sys.stdin.read()
+        except UnicodeDecodeError:
+            typer.echo("Error: stdin contains binary data (not valid UTF-8)", err=True)
+            typer.echo("Hint: for binary files, use: keep put file:///path/to/file", err=True)
+            raise typer.Exit(1)
+        content, frontmatter_tags = _parse_frontmatter(content)
+        parsed_tags = {**frontmatter_tags, **parsed_tags}  # CLI tags override
+        if summary is not None:
+            typer.echo("Error: --summary cannot be used with stdin input (original content would be lost)", err=True)
+            typer.echo("Hint: write to a file first, then: keep put file:///path/to/file --summary '...'", err=True)
+            raise typer.Exit(1)
+        max_len = kp.config.max_summary_length
+        if len(content) > max_len:
+            typer.echo(f"Error: stdin content too long to store inline ({len(content)} chars, max {max_len})", err=True)
+            typer.echo("Hint: write to a file first, then: keep put file:///path/to/file", err=True)
+            raise typer.Exit(1)
+        # Use content-addressed ID for stdin text (enables versioning)
+        doc_id = id or _text_content_id(content)
+        return kp.put(content, id=doc_id, tags=parsed_tags or None)
+    elif resolved_path is not None and resolved_path.is_dir():
+        # Directory mode: index all regular files in directory
+        if summary is not None:
+            typer.echo("Error: --summary cannot be used with directory mode", err=True)
+            raise typer.Exit(1)
+        if id is not None:
+            typer.echo("Error: --id cannot be used with directory mode", err=True)
+            raise typer.Exit(1)
+        files = _list_directory_files(resolved_path)
+        if not files:
+            typer.echo(f"Error: no eligible files in {resolved_path}/", err=True)
+            typer.echo("Hint: hidden files, symlinks, and subdirectories are skipped", err=True)
+            raise typer.Exit(1)
+        if len(files) > MAX_DIR_FILES:
+            typer.echo(f"Error: directory has {len(files)} files (max {MAX_DIR_FILES})", err=True)
+            typer.echo("Hint: use a smaller directory or index files individually", err=True)
+            raise typer.Exit(1)
+        results: list[Item] = []
+        errors: list[str] = []
+        total = len(files)
+        for i, fpath in enumerate(files, 1):
+            file_uri = f"file://{fpath}"
+            try:
+                item = kp.put(uri=file_uri, tags=parsed_tags or None)
+                results.append(item)
+                typer.echo(f"[{i}/{total}] {fpath.name} ok", err=True)
+            except Exception as e:
+                errors.append(f"{fpath.name}: {e}")
+                typer.echo(f"[{i}/{total}] {fpath.name} error: {e}", err=True)
+        indexed = len(results)
+        skipped = len(errors)
+        typer.echo(f"\n{indexed} indexed, {skipped} skipped from {resolved_path.name}/", err=True)
+        if results:
+            typer.echo(_format_items(results, as_json=_get_json_output()))
+        if do_analyze and results:
+            queued = 0
+            for r in results:
+                try:
+                    if kp.enqueue_analyze(r.id):
+                        queued += 1
+                except ValueError:
+                    pass
+            if queued:
+                typer.echo(f"Queued {queued} items for analysis.", err=True)
+            else:
+                typer.echo("All items already analyzed, nothing to do.", err=True)
+        return None
+    elif resolved_path is not None and resolved_path.is_file():
+        # File mode: bare file path → normalize to file:// URI
+        file_uri = f"file://{resolved_path}"
+        return kp.put(uri=file_uri, tags=parsed_tags or None, summary=summary)
+    elif source and _URI_SCHEME_PATTERN.match(source):
+        # URI mode: fetch from URI (ID is the URI itself)
+        return kp.put(uri=source, tags=parsed_tags or None, summary=summary)
+    elif source:
+        # Text mode: inline content (no :// in source)
+        if summary is not None:
+            typer.echo("Error: --summary cannot be used with inline text (original content would be lost)", err=True)
+            typer.echo("Hint: write to a file first, then: keep put file:///path/to/file --summary '...'", err=True)
+            raise typer.Exit(1)
+        max_len = kp.config.max_summary_length
+        if len(source) > max_len:
+            typer.echo(f"Error: inline text too long to store ({len(source)} chars, max {max_len})", err=True)
+            typer.echo("Hint: write to a file first, then: keep put file:///path/to/file", err=True)
+            raise typer.Exit(1)
+        # Use content-addressed ID for text (enables versioning)
+        doc_id = id or _text_content_id(source)
+        return kp.put(source, id=doc_id, tags=parsed_tags or None)
+    else:
+        typer.echo("Error: Provide content, URI, or '-' for stdin", err=True)
+        raise typer.Exit(1)
 
 
 @app.command("put")
@@ -925,16 +1140,26 @@ def put(
         "--suggest-tags",
         help="Show tag suggestions from similar notes"
     )] = False,
+    do_analyze: Annotated[bool, typer.Option(
+        "--analyze",
+        help="Queue background analysis (decompose into parts)"
+    )] = False,
 ):
     """
     Add or update a note in the store.
 
     \b
-    Three input modes (auto-detected):
+    Input modes (auto-detected):
+      keep put /path/to/folder/   # Directory mode: index all files
+      keep put /path/to/file.pdf  # File mode: index single file
       keep put file:///path       # URI mode: has ://
       keep put "my note"          # Text mode: content-addressed ID
       keep put -                  # Stdin mode: explicit -
       echo "pipe" | keep put      # Stdin mode: piped input
+
+    \b
+    Directory mode indexes all regular files (non-recursive).
+    Skips hidden files, symlinks, and subdirectories.
 
     \b
     Text mode uses content-addressed IDs for versioning:
@@ -946,43 +1171,16 @@ def put(
     parsed_tags = _parse_tags(tags)
 
     # Determine mode based on source content
-    if source == "-" or (source is None and _has_stdin_data()):
-        # Stdin mode: explicit '-' or piped input
-        content = sys.stdin.read()
-        content, frontmatter_tags = _parse_frontmatter(content)
-        parsed_tags = {**frontmatter_tags, **parsed_tags}  # CLI tags override
-        if summary is not None:
-            typer.echo("Error: --summary cannot be used with stdin input (original content would be lost)", err=True)
-            typer.echo("Hint: write to a file first, then: keep put file:///path/to/file --summary '...'", err=True)
-            raise typer.Exit(1)
-        max_len = kp.config.max_summary_length
-        if len(content) > max_len:
-            typer.echo(f"Error: stdin content too long to store inline ({len(content)} chars, max {max_len})", err=True)
-            typer.echo("Hint: write to a file first, then: keep put file:///path/to/file", err=True)
-            raise typer.Exit(1)
-        # Use content-addressed ID for stdin text (enables versioning)
-        doc_id = id or _text_content_id(content)
-        item = kp.remember(content, id=doc_id, tags=parsed_tags or None)
-    elif source and _URI_SCHEME_PATTERN.match(source):
-        # URI mode: fetch from URI (ID is the URI itself)
-        item = kp.update(source, tags=parsed_tags or None, summary=summary)
-    elif source:
-        # Text mode: inline content (no :// in source)
-        if summary is not None:
-            typer.echo("Error: --summary cannot be used with inline text (original content would be lost)", err=True)
-            typer.echo("Hint: write to a file first, then: keep put file:///path/to/file --summary '...'", err=True)
-            raise typer.Exit(1)
-        max_len = kp.config.max_summary_length
-        if len(source) > max_len:
-            typer.echo(f"Error: inline text too long to store ({len(source)} chars, max {max_len})", err=True)
-            typer.echo("Hint: write to a file first, then: keep put file:///path/to/file", err=True)
-            raise typer.Exit(1)
-        # Use content-addressed ID for text (enables versioning)
-        doc_id = id or _text_content_id(source)
-        item = kp.remember(source, id=doc_id, tags=parsed_tags or None)
-    else:
-        typer.echo("Error: Provide content, URI, or '-' for stdin", err=True)
+    # Check for filesystem path (directory or file) before other modes
+    resolved_path = _is_filesystem_path(source) if source and source != "-" else None
+
+    try:
+        item = _put_store(kp, source, resolved_path, parsed_tags, id, summary, do_analyze)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
+    if item is None:
+        return  # directory mode already printed output
 
     # Surface similar items (occasion for reflection)
     suggest_limit = 10 if suggest_tags else 3
@@ -1012,6 +1210,15 @@ def put(
             for tag, count in sorted_tags:
                 typer.echo(f"  -t {tag}  ({count})")
             typer.echo(f"\napply with: keep tag-update {_shell_quote_id(item.id)} -t TAG")
+
+    if do_analyze:
+        try:
+            if kp.enqueue_analyze(item.id):
+                typer.echo(f"Queued {item.id} for background analysis.", err=True)
+            else:
+                typer.echo(f"Already analyzed, skipping {item.id}.", err=True)
+        except ValueError:
+            pass
 
 
 @app.command("update", hidden=True)
@@ -1129,7 +1336,11 @@ def now(
 
     # Read from stdin if piped and no content argument
     if content is None and not reset and _has_stdin_data():
-        content = sys.stdin.read().strip() or None
+        try:
+            content = sys.stdin.read().strip() or None
+        except UnicodeDecodeError:
+            typer.echo("Error: stdin contains binary data (not valid UTF-8)", err=True)
+            raise typer.Exit(1)
 
     # Determine if we're getting or setting
     setting = content is not None or reset
@@ -1197,7 +1408,7 @@ def _find_now_version_by_tags(kp, tags: list[str]):
     """
     Search nowdoc version history for most recent version matching all tags.
 
-    Checks current version first, then scans archived versions.
+    Checks current version first, then scans previous versions.
     """
     from .api import NOWDOC_ID
 
@@ -1225,7 +1436,7 @@ def _find_now_version_by_tags(kp, tags: list[str]):
     if current and matches_tags(current.tags):
         return current
 
-    # Scan archived versions (newest first)
+    # Scan previous versions (newest first)
     versions = kp.list_versions(NOWDOC_ID, limit=100)
     for i, v in enumerate(versions):
         if matches_tags(v.tags):
@@ -1265,6 +1476,10 @@ def move(
         "--only",
         help="Move only the current (tip) version"
     )] = False,
+    do_analyze: Annotated[bool, typer.Option(
+        "--analyze",
+        help="Queue background analysis after move"
+    )] = False,
     store: StoreOption = None,
 ):
     """
@@ -1300,6 +1515,13 @@ def move(
     items = _versions_to_items(name, saved, versions)
     typer.echo(_format_items(items, as_json=as_json))
 
+    if do_analyze:
+        try:
+            kp.enqueue_analyze(name)
+            typer.echo(f"Queued {name} for background analysis.", err=True)
+        except ValueError:
+            pass
+
 
 @app.command()
 def get(
@@ -1324,6 +1546,10 @@ def get(
         "--resolve", "-R",
         help="Inline meta query (metadoc syntax, repeatable)"
     )] = None,
+    parts: Annotated[bool, typer.Option(
+        "--parts", "-P",
+        help="List structural parts (from analyze)"
+    )] = False,
     tag: Annotated[Optional[list[str]], typer.Option(
         "--tag", "-t",
         help="Require tag (key or key=value, repeatable)"
@@ -1338,6 +1564,7 @@ def get(
     Retrieve note(s) by ID.
 
     Accepts one or more IDs. Version identifiers: Append @V{N} to get a specific version.
+    Part identifiers: Append @P{N} to get a specific part.
 
     \b
     Examples:
@@ -1345,7 +1572,9 @@ def get(
         keep get doc:1 doc:2 doc:3      # Multiple notes
         keep get doc:1 -V 1             # Previous version with prev/next nav
         keep get "doc:1@V{1}"           # Same as -V 1
+        keep get "doc:1@P{1}"           # Part 1 of analyzed note
         keep get doc:1 --history        # List all versions
+        keep get doc:1 --parts          # List structural parts
         keep get doc:1 --similar        # List similar items
         keep get doc:1 --meta           # List meta items
         keep get doc:1 -t project=myapp # Only if tag matches
@@ -1355,7 +1584,7 @@ def get(
     errors = []
 
     for one_id in id:
-        result = _get_one(kp, one_id, version, history, similar, meta, resolve, tag, limit)
+        result = _get_one(kp, one_id, version, history, similar, meta, resolve, tag, limit, parts)
         if result is None:
             errors.append(one_id)
         else:
@@ -1379,27 +1608,71 @@ def _get_one(
     resolve: Optional[list[str]],
     tag: Optional[list[str]],
     limit: int,
+    show_parts: bool = False,
 ) -> Optional[str]:
     """Get a single item and return its formatted output, or None on error."""
 
-    # Parse @V{N} version identifier from ID (security: check literal first)
+    # Parse @V{N} or @P{N} identifier from ID (security: check literal first)
     actual_id = one_id
     version_from_id = None
+    part_from_id = None
 
     if kp.exists(one_id):
         # Literal ID exists - use it directly (prevents confusion attacks)
         actual_id = one_id
     else:
-        # Try parsing @V{N} suffix
-        match = VERSION_SUFFIX_PATTERN.search(one_id)
+        # Try parsing @P{N} suffix first
+        match = PART_SUFFIX_PATTERN.search(one_id)
         if match:
-            version_from_id = int(match.group(1))
+            part_from_id = int(match.group(1))
             actual_id = one_id[:match.start()]
+        else:
+            # Try parsing @V{N} suffix
+            match = VERSION_SUFFIX_PATTERN.search(one_id)
+            if match:
+                version_from_id = int(match.group(1))
+                actual_id = one_id[:match.start()]
 
     # Version from ID only applies if --version not explicitly provided
     effective_version = version
     if version is None and version_from_id is not None:
         effective_version = version_from_id
+
+    # Part addressing: return part directly
+    if part_from_id is not None:
+        item = kp.get_part(actual_id, part_from_id)
+        if item is None:
+            typer.echo(f"Part not found: {actual_id}@P{{{part_from_id}}}", err=True)
+            return None
+
+        if _get_ids_output():
+            return f"{_shell_quote_id(actual_id)}@P{{{part_from_id}}}"
+        if _get_json_output():
+            return json.dumps({
+                "id": actual_id,
+                "part": part_from_id,
+                "total_parts": int(item.tags.get("_total_parts", 0)),
+                "summary": item.summary,
+                "tags": _filter_display_tags(item.tags),
+            }, indent=2)
+
+        # Build part navigation
+        total = int(item.tags.get("_total_parts", 0))
+        lines = ["---", f"id: {_shell_quote_id(actual_id)}@P{{{part_from_id}}}"]
+        display_tags = _filter_display_tags(item.tags)
+        if display_tags:
+            tag_items = ", ".join(f"{k}: {v}" for k, v in sorted(display_tags.items()))
+            lines.append(f"tags: {{{tag_items}}}")
+        # Part navigation
+        if part_from_id > 1:
+            lines.append("prev:")
+            lines.append(f"  - @P{{{part_from_id - 1}}}")
+        if part_from_id < total:
+            lines.append("next:")
+            lines.append(f"  - @P{{{part_from_id + 1}}}")
+        lines.append("---")
+        lines.append(item.summary)
+        return "\n".join(lines)
 
     if history:
         # List all versions
@@ -1407,6 +1680,36 @@ def _get_one(
         current = kp.get(actual_id)
         items = _versions_to_items(actual_id, current, versions)
         return _format_items(items, as_json=_get_json_output())
+
+    if show_parts:
+        # List all parts
+        part_list = kp.list_parts(actual_id)
+        if _get_ids_output():
+            return "\n".join(f"{actual_id}@P{{{p.part_num}}}" for p in part_list)
+        elif _get_json_output():
+            result = {
+                "id": actual_id,
+                "parts": [
+                    {
+                        "part": p.part_num,
+                        "pid": f"{actual_id}@P{{{p.part_num}}}",
+                        "summary": p.summary[:100],
+                        "tags": {k: v for k, v in p.tags.items() if not k.startswith("_")},
+                    }
+                    for p in part_list
+                ],
+            }
+            return json.dumps(result, indent=2)
+        else:
+            if not part_list:
+                return f"No parts for {actual_id}. Use 'keep analyze {actual_id}' to create parts."
+            lines = [f"Parts for {actual_id}:"]
+            for p in part_list:
+                summary_preview = p.summary[:60].replace("\n", " ")
+                if len(p.summary) > 60:
+                    summary_preview += "..."
+                lines.append(f"  @P{{{p.part_num}}} {summary_preview}")
+            return "\n".join(lines)
 
     if similar:
         # List similar items
@@ -1550,14 +1853,18 @@ def _get_one(
     # Get version navigation
     version_nav = kp.get_version_nav(actual_id, internal_version)
 
-    # Get similar items and meta sections for current version
+    # Get similar items, meta sections, and parts manifest for current version
     similar_items = None
     similar_offsets = None
     meta_sections = None
+    parts_manifest = None
     if offset == 0:
         similar_items = kp.get_similar_for_display(actual_id, limit=3)
         similar_offsets = {s.id: kp.get_version_offset(s) for s in similar_items}
         meta_sections = kp.resolve_meta(actual_id)
+        parts = kp.list_parts(actual_id)
+        if parts:
+            parts_manifest = parts
 
     return _format_item(
         item,
@@ -1567,6 +1874,7 @@ def _get_one(
         similar_items=similar_items,
         similar_offsets=similar_offsets,
         meta_sections=meta_sections,
+        parts_manifest=parts_manifest,
     )
 
 
@@ -1626,24 +1934,103 @@ def delete(
     del_cmd(id=id, store=store)
 
 
-@app.command("collections")
-def list_collections(
+@app.command()
+def analyze(
+    id: Annotated[str, typer.Argument(help="ID of note to analyze into parts")],
+    tag: Annotated[Optional[list[str]], typer.Option(
+        "--tag", "-t",
+        help="Guidance tag keys for decomposition (e.g., -t topic -t type)",
+    )] = None,
+    foreground: Annotated[bool, typer.Option(
+        "--foreground", "--fg",
+        help="Run in foreground (default: background)"
+    )] = False,
+    force: Annotated[bool, typer.Option(
+        "--force",
+        help="Re-analyze even if parts are already current"
+    )] = False,
     store: StoreOption = None,
 ):
     """
-    List all collections in the store.
+    Decompose a note or string into meaningful parts.
+
+    For documents (URI sources): decomposes content structurally.
+    For inline notes (strings): assembles version history and decomposes
+    the temporal sequence into episodic parts.
+
+    Uses an LLM to identify sections, each with its own summary, tags,
+    and embedding. Parts appear in 'find' results and can be accessed
+    with @P{N} syntax.
+
+    Skips analysis if parts are already current (content unchanged since
+    last analysis). Use --force to re-analyze regardless.
+
+    Runs in the background by default (serialized with other ML work);
+    use --fg to wait for results.
     """
     kp = _get_keeper(store)
-    collections = kp.list_collections()
+
+    # Background mode (default): enqueue for serial processing
+    if not foreground:
+        try:
+            enqueued = kp.enqueue_analyze(id, tags=tag, force=force)
+        except ValueError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(1)
+
+        if not enqueued:
+            if _get_json_output():
+                typer.echo(json.dumps({"id": id, "status": "skipped"}))
+            else:
+                typer.echo(f"Already analyzed, skipping {id}.", err=True)
+            kp.close()
+            return
+
+        if _get_json_output():
+            typer.echo(json.dumps({"id": id, "status": "queued"}))
+        else:
+            typer.echo(f"Queued {id} for background analysis.", err=True)
+        kp.close()
+        return
+
+    try:
+        parts = kp.analyze(id, tags=tag, force=force)
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Analysis failed: {e}", err=True)
+        raise typer.Exit(1)
+
+    if not parts:
+        if _get_json_output():
+            typer.echo(json.dumps({"id": id, "parts": []}))
+        else:
+            typer.echo(f"Content not decomposable into multiple parts: {id}")
+        return
 
     if _get_json_output():
-        typer.echo(json.dumps(collections))
+        result = {
+            "id": id,
+            "parts": [
+                {
+                    "part": p.part_num,
+                    "pid": f"{id}@P{{{p.part_num}}}",
+                    "summary": p.summary[:100],
+                    "tags": {k: v for k, v in p.tags.items() if not k.startswith("_")},
+                }
+                for p in parts
+            ],
+        }
+        typer.echo(json.dumps(result, indent=2))
     else:
-        if not collections:
-            typer.echo("No collections.")
-        else:
-            for c in collections:
-                typer.echo(c)
+        typer.echo(f"Analyzed {id} into {len(parts)} parts:")
+        for p in parts:
+            summary_preview = p.summary[:60].replace("\n", " ")
+            if len(p.summary) > 60:
+                summary_preview += "..."
+            typer.echo(f"  @P{{{p.part_num}}} {summary_preview}")
+
 
 
 
@@ -1690,7 +2077,6 @@ def _get_config_value(cfg, store_path: Path, path: str):
         tool - package directory (SKILL.md location)
         openclaw-plugin - OpenClaw plugin directory
         store - store path
-        collections - list of collections
 
     Dotted paths into config:
         providers - all provider config
@@ -1712,15 +2098,6 @@ def _get_config_value(cfg, store_path: Path, path: str):
         return str(get_tool_directory() / "docs")
     if path == "store":
         return str(store_path)
-    if path == "collections":
-        # Use ChromaStore directly to avoid full Keeper init
-        from .store import ChromaStore
-        try:
-            chroma = ChromaStore(store_path)
-            return chroma.list_collections()
-        except (OSError, ValueError):
-            return []
-
     # Provider shortcuts
     if path == "providers":
         if cfg:
@@ -1769,14 +2146,6 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
     config_path = cfg.config_path if cfg else None
     lines = []
 
-    # Get collections using ChromaStore directly (no API calls)
-    from .store import ChromaStore
-    try:
-        chroma = ChromaStore(store_path)
-        collections = chroma.list_collections()
-    except (OSError, ValueError):
-        collections = []
-
     # Show paths
     lines.append(f"file: {config_path}")
     lines.append(f"tool: {get_tool_directory()}")
@@ -1784,7 +2153,6 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
     lines.append(f"store: {store_path}")
     import importlib.resources
     lines.append(f"openclaw-plugin: {Path(str(importlib.resources.files('keep'))) / 'data' / 'openclaw-plugin'}")
-    lines.append(f"collections: {collections}")
 
     if cfg:
         lines.append("")
@@ -1834,6 +2202,7 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
         lines.append("#   ANTHROPIC_API_KEY  → summarization: anthropic")
         lines.append("#   OPENAI_API_KEY     → embedding: openai, summarization: openai")
         lines.append("#   GEMINI_API_KEY     → embedding: gemini, summarization: gemini")
+        lines.append("#   GOOGLE_CLOUD_PROJECT → Vertex AI (uses Workload Identity / ADC)")
         lines.append("#")
         lines.append("# Models (configure in keep.toml):")
         lines.append("#   voyage: voyage-3.5-lite (default), voyage-3-large, voyage-code-3")
@@ -1841,7 +2210,7 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
         lines.append("#   openai embedding: text-embedding-3-small (default), text-embedding-3-large")
         lines.append("#   openai summarization: gpt-4o-mini (default)")
         lines.append("#   gemini embedding: text-embedding-004 (default)")
-        lines.append("#   gemini summarization: gemini-3-flash-preview (default)")
+        lines.append("#   gemini summarization: gemini-2.5-flash (default)")
         lines.append("#")
         lines.append("# Ollama (auto-detected if running, no API key needed):")
         lines.append("#   OLLAMA_HOST        → default: http://localhost:11434")
@@ -1918,14 +2287,6 @@ def config(
 
     # Full config output
     if _get_json_output():
-        # Get collections using ChromaStore directly (no API calls)
-        from .store import ChromaStore
-        try:
-            chroma = ChromaStore(store_path)
-            collections = chroma.list_collections()
-        except Exception:
-            collections = []
-
         import importlib.resources
         result = {
             "file": str(config_path) if config_path else None,
@@ -1933,7 +2294,6 @@ def config(
             "docs": str(get_tool_directory() / "docs"),
             "store": str(store_path),
             "openclaw-plugin": str(Path(str(importlib.resources.files("keep"))) / "data" / "openclaw-plugin"),
-            "collections": collections,
             "providers": {
                 "embedding": cfg.embedding.name if cfg and cfg.embedding else None,
                 "summarization": cfg.summarization.name if cfg else None,

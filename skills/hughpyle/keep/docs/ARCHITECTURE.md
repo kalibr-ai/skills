@@ -31,7 +31,7 @@ The original document content is **not stored** — only the summary and embeddi
 ┌─────────────────────────────────────────────────────────────┐
 │  API Layer (api.py)                                         │
 │  - Keeper class                                             │
-│  - High-level operations: update(), remember(), find()      │
+│  - High-level operations: put(), find(), get()              │
 │  - Version management: get_version(), list_versions()       │
 └──────────────────┬──────────────────────────────────────────┘
                    │
@@ -83,7 +83,7 @@ The original document content is **not stored** — only the summary and embeddi
 
 ## Data Flow
 
-### Indexing: update(uri) or remember(content)
+### Indexing: put(uri=...) or put(content)
 
 ```
 URI or content
@@ -200,7 +200,7 @@ delete(id)
 
 **5. Immutable Items**
 - `Item` is frozen dataclass
-- Updates via `update()` return new Item
+- Updates via `put()` return new Item
 - Prevents accidental mutation bugs
 
 **6. System Tag Protection**
@@ -249,7 +249,7 @@ Generate vector representations for semantic search.
 
 - **voyage**: API-based, Anthropic's recommended partner (VOYAGE_API_KEY)
 - **openai**: API-based, high quality (OPENAI_API_KEY)
-- **gemini**: API-based, Google (GEMINI_API_KEY)
+- **gemini**: API-based, Google (GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT for Vertex AI)
 - **ollama**: Local server, auto-detected, any model (OLLAMA_HOST)
 - **sentence-transformers**: Local, CPU/GPU, no API key
 - **MLX**: Apple Silicon optimized, local, no API key
@@ -261,7 +261,7 @@ Generate human-readable summaries from content.
 
 - **anthropic**: LLM-based, cost-effective option (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN)
 - **openai**: LLM-based, high quality (OPENAI_API_KEY)
-- **gemini**: LLM-based, Google (GEMINI_API_KEY)
+- **gemini**: LLM-based, Google (GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT for Vertex AI)
 - **ollama**: LLM-based, local server, auto-detected (OLLAMA_HOST)
 - **MLX**: LLM-based, local, no API key
 - **truncate**: Simple text truncation (fallback)
@@ -313,7 +313,7 @@ Generate text descriptions from media files, enriching metadata-only content.
 - **mlx**: Apple Silicon — vision (mlx-vlm) + audio transcription (mlx-whisper)
 - **ollama**: Local server — vision models only (llava, moondream, bakllava)
 
-Media description runs in `Keeper.update()` between fetch and upsert. Descriptions are appended to the metadata content before embedding/summarization, making media files semantically searchable by their visual or audio content.
+Media description runs in `Keeper.put()` between fetch and upsert. Descriptions are appended to the metadata content before embedding/summarization, making media files semantically searchable by their visual or audio content.
 
 Design points:
 - Only triggered for non-text content types (image/*, audio/*)
@@ -373,7 +373,7 @@ Design points:
 - Lazy loading prevents import-time crashes
 
 **URI Fetch Failures**
-- `update()` raises `IOError` for unreachable URIs
+- `put()` raises `IOError` for unreachable URIs
 - Original error preserved in exception chain
 
 **Invalid Config**

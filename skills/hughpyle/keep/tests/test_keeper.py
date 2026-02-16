@@ -28,10 +28,13 @@ def _has_embedding_provider() -> bool:
             return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _has_embedding_provider(),
-    reason="No embedding provider available (install keep-skill[local] or set API key)",
-)
+pytestmark = [
+    pytest.mark.slow,  # Uses real providers — excluded from default test run
+    pytest.mark.skipif(
+        not _has_embedding_provider(),
+        reason="No embedding provider available (install keep-skill[local] or set API key)",
+    ),
+]
 
 
 @pytest.fixture(scope="module")
@@ -50,23 +53,23 @@ def keeper():
 class TestKeeperBasics:
     """Basic Keeper operations."""
 
-    def test_remember_returns_item(self, keeper: Keeper) -> None:
-        """remember() returns an Item with id and summary."""
-        item = keeper.remember("Test content for remember.")
+    def test_put_returns_item(self, keeper: Keeper) -> None:
+        """put() returns an Item with id and summary."""
+        item = keeper.put("Test content for remember.")
 
         assert item.id is not None
         assert item.summary is not None
         assert len(item.summary) > 0
 
-    def test_remember_with_explicit_id(self, keeper: Keeper) -> None:
-        """remember() with explicit id uses that id."""
-        item = keeper.remember("Content with explicit id.", id="test:explicit")
+    def test_put_with_explicit_id(self, keeper: Keeper) -> None:
+        """put() with explicit id uses that id."""
+        item = keeper.put("Content with explicit id.", id="test:explicit")
 
         assert item.id == "test:explicit"
 
-    def test_remember_with_tags(self, keeper: Keeper) -> None:
-        """remember() stores provided tags."""
-        item = keeper.remember(
+    def test_put_with_tags(self, keeper: Keeper) -> None:
+        """put() stores provided tags."""
+        item = keeper.put(
             "Content with tags.",
             id="test:tagged",
             tags={"category": "test", "priority": "high"},
@@ -77,7 +80,7 @@ class TestKeeperBasics:
 
     def test_get_retrieves_item(self, keeper: Keeper) -> None:
         """get() retrieves a stored item by id."""
-        keeper.remember("Retrievable content.", id="test:retrieve")
+        keeper.put("Retrievable content.", id="test:retrieve")
 
         item = keeper.get("test:retrieve")
 
@@ -92,7 +95,7 @@ class TestKeeperBasics:
 
     def test_exists_true_for_stored(self, keeper: Keeper) -> None:
         """exists() returns True for stored item."""
-        keeper.remember("Existence test.", id="test:exists")
+        keeper.put("Existence test.", id="test:exists")
 
         assert keeper.exists("test:exists") is True
 
@@ -102,7 +105,7 @@ class TestKeeperBasics:
 
     def test_delete_removes_item(self, keeper: Keeper) -> None:
         """delete() removes an item."""
-        keeper.remember("To be deleted.", id="test:delete")
+        keeper.put("To be deleted.", id="test:delete")
         assert keeper.exists("test:delete") is True
 
         keeper.delete("test:delete")
@@ -113,8 +116,8 @@ class TestKeeperBasics:
         """count() returns number of items."""
         initial = keeper.count()
 
-        keeper.remember("Count test 1.", id="test:count1")
-        keeper.remember("Count test 2.", id="test:count2")
+        keeper.put("Count test 1.", id="test:count1")
+        keeper.put("Count test 2.", id="test:count2")
 
         assert keeper.count() >= initial + 2
 
@@ -124,7 +127,7 @@ class TestKeeperFind:
 
     def test_find_returns_results(self, keeper: Keeper) -> None:
         """find() returns matching items."""
-        keeper.remember(
+        keeper.put(
             "The quick brown fox jumps over the lazy dog.",
             id="test:fox",
         )
@@ -136,7 +139,7 @@ class TestKeeperFind:
 
     def test_find_results_have_scores(self, keeper: Keeper) -> None:
         """find() results include similarity scores."""
-        keeper.remember("Scored content for testing.", id="test:scored")
+        keeper.put("Scored content for testing.", id="test:scored")
 
         results = keeper.find("scored content")
 
@@ -153,15 +156,15 @@ class TestKeeperFind:
 class TestKeeperUpdate:
     """Keeper update (tag merge) behavior."""
 
-    def test_remember_merges_tags(self, keeper: Keeper) -> None:
-        """remember() merges tags on update."""
-        keeper.remember(
+    def test_put_merges_tags(self, keeper: Keeper) -> None:
+        """put() merges tags on update."""
+        keeper.put(
             "Original content.",
             id="test:merge",
             tags={"a": "1", "b": "2"},
         )
 
-        keeper.remember(
+        keeper.put(
             "Updated content.",
             id="test:merge",
             tags={"b": "updated", "c": "3"},
@@ -171,3 +174,26 @@ class TestKeeperUpdate:
         assert item.tags["a"] == "1"  # preserved
         assert item.tags["b"] == "updated"  # updated
         assert item.tags["c"] == "3"  # added
+
+    def test_put_changed_flag_new_content(self, keeper: Keeper) -> None:
+        """put() sets changed=True for new content."""
+        item = keeper.put("Brand new content.", id="test:changed-new")
+        assert item.changed is True
+
+    def test_put_changed_flag_updated_content(self, keeper: Keeper) -> None:
+        """put() sets changed=True when content changes."""
+        keeper.put("Original.", id="test:changed-update")
+        item = keeper.put("Different content.", id="test:changed-update")
+        assert item.changed is True
+
+    def test_put_changed_flag_unchanged(self, keeper: Keeper) -> None:
+        """put() sets changed=False when content is identical."""
+        keeper.put("Same content.", id="test:changed-same")
+        item = keeper.put("Same content.", id="test:changed-same")
+        assert item.changed is False
+
+    def test_put_changed_flag_tags_only(self, keeper: Keeper) -> None:
+        """put() sets changed=False when only tags change (content unchanged)."""
+        keeper.put("Stable content.", id="test:changed-tags")
+        item = keeper.put("Stable content.", id="test:changed-tags", tags={"new": "tag"})
+        assert item.changed is False

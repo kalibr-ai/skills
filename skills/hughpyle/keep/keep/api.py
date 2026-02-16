@@ -2,8 +2,7 @@
 Core API for reflective memory.
 
 This is the minimal working implementation focused on:
-- update(): fetch → embed → summarize → store
-- remember(): embed → summarize → store  
+- put(): fetch/embed → summarize → store
 - find(): embed query → search
 - get(): retrieve by ID
 """
@@ -13,7 +12,6 @@ import importlib.resources
 import json
 import logging
 import re
-import sqlite3
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
@@ -135,7 +133,7 @@ def _truncate_ts(ts: str) -> str:
     return ts
 
 
-def _record_to_item(rec, score: float = None) -> "Item":
+def _record_to_item(rec, score: float = None, changed: bool = None) -> "Item":
     """
     Convert a DocumentRecord to an Item with timestamp tags.
 
@@ -154,7 +152,7 @@ def _record_to_item(rec, score: float = None) -> "Item":
         "_accessed": accessed,
         "_accessed_date": accessed[:10],
     }
-    return Item(id=rec.id, summary=rec.summary, tags=tags, score=score)
+    return Item(id=rec.id, summary=rec.summary, tags=tags, score=score, changed=changed)
 
 
 import os
@@ -173,10 +171,10 @@ from .providers.base import (
     SummarizationProvider,
 )
 from .providers.embedding_cache import CachingEmbeddingProvider
-from .document_store import VersionInfo
+from .document_store import PartInfo, VersionInfo
 from .types import (
-    Item, filter_non_system_tags, SYSTEM_TAG_PREFIX, parse_utc_timestamp,
-    validate_tag_key, validate_id, MAX_TAG_VALUE_LENGTH,
+    Item, casefold_tags, filter_non_system_tags, SYSTEM_TAG_PREFIX,
+    parse_utc_timestamp, validate_tag_key, validate_id, MAX_TAG_VALUE_LENGTH,
 )
 
 
@@ -235,7 +233,19 @@ SYSTEM_DOC_IDS = {
     "domains.md": ".domains",
     "library.md": ".library",
     "tag-act.md": ".tag/act",
+    "tag-act-commitment.md": ".tag/act/commitment",
+    "tag-act-request.md": ".tag/act/request",
+    "tag-act-offer.md": ".tag/act/offer",
+    "tag-act-assertion.md": ".tag/act/assertion",
+    "tag-act-assessment.md": ".tag/act/assessment",
+    "tag-act-declaration.md": ".tag/act/declaration",
     "tag-status.md": ".tag/status",
+    "tag-status-open.md": ".tag/status/open",
+    "tag-status-blocked.md": ".tag/status/blocked",
+    "tag-status-fulfilled.md": ".tag/status/fulfilled",
+    "tag-status-declined.md": ".tag/status/declined",
+    "tag-status-withdrawn.md": ".tag/status/withdrawn",
+    "tag-status-renegotiated.md": ".tag/status/renegotiated",
     "tag-project.md": ".tag/project",
     "tag-topic.md": ".tag/topic",
     "tag-type.md": ".tag/type",
@@ -408,13 +418,208 @@ def _text_content_id(content: str) -> str:
     return f"%{content_hash}"
 
 
+# -------------------------------------------------------------------------
+# Decomposition helpers (module-level, used by Keeper.analyze)
+# -------------------------------------------------------------------------
+
+DECOMPOSITION_SYSTEM_PROMPT = """You are a document analysis assistant. Your task is to decompose a document into its meaningful structural sections.
+
+For each section, provide:
+- "summary": A concise summary of the section (1-3 sentences)
+- "content": The exact text of the section
+- "tags": A dict of relevant tags for this section (optional)
+
+Return a JSON array of section objects. Example:
+```json
+[
+  {"summary": "Introduction and overview of the topic", "content": "The text of section 1...", "tags": {"topic": "overview"}},
+  {"summary": "Detailed analysis of the main argument", "content": "The text of section 2...", "tags": {"topic": "analysis"}}
+]
+```
+
+Guidelines:
+- Identify natural section boundaries (headings, topic shifts, structural breaks)
+- Each section should be a coherent unit of meaning
+- Preserve the original text exactly in the "content" field
+- Keep summaries concise but descriptive
+- Tags should capture the essence of each section's subject matter
+- Return valid JSON only, no commentary outside the JSON array"""
+
+
+def _call_decomposition_llm(
+    provider: "SummarizationProvider",
+    content: str,
+    guide_context: str = "",
+) -> list[dict]:
+    """
+    Call an LLM to decompose content into sections.
+
+    Uses the provider's generate() method to send the decomposition prompt.
+
+    Args:
+        provider: A summarization provider with generate() support
+        content: Document content to decompose
+        guide_context: Optional tag descriptions for guided decomposition
+
+    Returns:
+        List of dicts with "summary", "content", and optionally "tags" keys.
+        Empty list on failure.
+    """
+    # Unwrap lock wrapper to access underlying provider
+    if hasattr(provider, '_provider') and provider._provider is not None:
+        provider = provider._provider
+
+    # Truncate content for decomposition
+    truncated = content[:80000] if len(content) > 80000 else content
+
+    # Build user prompt
+    user_prompt = truncated
+    if guide_context:
+        user_prompt = (
+            f"Decompose this document into meaningful sections.\n\n"
+            f"Use these tag definitions to guide your tagging:\n\n"
+            f"{guide_context}\n\n"
+            f"---\n\n"
+            f"Document to analyze:\n\n{truncated}"
+        )
+
+    try:
+        result = provider.generate(
+            DECOMPOSITION_SYSTEM_PROMPT,
+            user_prompt,
+            max_tokens=4096,
+        )
+        if result:
+            return _parse_decomposition_json(result, content)
+
+        logger.warning(
+            "Provider %s returned no result for decomposition, "
+            "falling back to simple chunking",
+            type(provider).__name__,
+        )
+        return []
+
+    except Exception as e:
+        logger.warning("LLM decomposition failed: %s", e)
+        return []
+
+
+def _parse_decomposition_json(text: str, content: str) -> list[dict]:
+    """
+    Parse JSON from LLM decomposition output.
+
+    Handles:
+    - Code fences (```json ... ```)
+    - Wrapper objects ({"sections": [...]})
+    - Direct JSON arrays
+
+    Args:
+        text: Raw LLM output
+        content: Original content (for fallback)
+
+    Returns:
+        List of section dicts
+    """
+    if not text:
+        return []
+
+    # Strip markdown code fences
+    text = text.strip()
+    if text.startswith("```"):
+        # Remove first line (```json or ```) and last line (```)
+        lines = text.split("\n")
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse decomposition JSON")
+        return []
+
+    # Handle wrapper objects like {"sections": [...]}
+    if isinstance(data, dict):
+        for key in ("sections", "parts", "chunks", "result", "data"):
+            if key in data and isinstance(data[key], list):
+                data = data[key]
+                break
+        else:
+            return []
+
+    if not isinstance(data, list):
+        return []
+
+    # Validate and normalize entries
+    result = []
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        # Must have at least summary or content
+        if not entry.get("summary") and not entry.get("content"):
+            continue
+        section = {
+            "summary": str(entry.get("summary", "")),
+            "content": str(entry.get("content", "")),
+        }
+        if entry.get("tags") and isinstance(entry["tags"], dict):
+            section["tags"] = {str(k): str(v) for k, v in entry["tags"].items()}
+        result.append(section)
+
+    return result
+
+
+def _simple_chunk_decomposition(content: str) -> list[dict]:
+    """
+    Paragraph-based fallback when no LLM is available.
+
+    Splits content on double-newlines, groups small paragraphs together.
+    Each chunk gets a truncated summary.
+    """
+    paragraphs = re.split(r'\n\s*\n', content.strip())
+    if not paragraphs:
+        return []
+
+    # Group small paragraphs together (min ~200 chars per chunk)
+    chunks = []
+    current = []
+    current_len = 0
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+        current.append(para)
+        current_len += len(para)
+        if current_len >= 500:
+            chunks.append("\n\n".join(current))
+            current = []
+            current_len = 0
+    if current:
+        chunks.append("\n\n".join(current))
+
+    # If we ended up with just 1 chunk that is the whole content, not useful
+    if len(chunks) <= 1:
+        return []
+
+    result = []
+    for chunk in chunks:
+        summary = chunk[:200].rsplit(" ", 1)[0] + "..." if len(chunk) > 200 else chunk
+        result.append({
+            "summary": summary,
+            "content": chunk,
+        })
+    return result
+
+
 class Keeper:
     """
     Reflective memory keeper - persistent storage with similarity search.
 
     Example:
         kp = Keeper()
-        kp.update("file:///path/to/readme.md")
+        kp.put(uri="file:///path/to/readme.md")
         results = kp.find("installation instructions")
     """
     
@@ -475,6 +680,9 @@ class Keeper:
         self._summarization_provider: Optional[SummarizationProvider] = None
         self._media_describer: Optional[MediaDescriber] = None
 
+        # Cache env tags once per Keeper instance (stable within a process)
+        self._env_tags = casefold_tags(_get_env_tags())
+
         # --- Storage backends (injected or factory-created) ---
         if doc_store is not None and vector_store is not None:
             # Fully injected (tests, custom setups)
@@ -495,6 +703,7 @@ class Keeper:
         # Guard against concurrent background reconciliation
         import threading
         self._reconcile_lock = threading.Lock()
+        self._reconcile_done = threading.Event()
 
         # Check store consistency and reconcile in background if needed
         # (safe for all backends — uses abstract store interface)
@@ -504,6 +713,8 @@ class Keeper:
             threading.Thread(
                 target=self._auto_reconcile_safe, args=(chroma_coll, doc_coll), daemon=True
             ).start()
+        else:
+            self._reconcile_done.set()
 
         # System doc migration deferred to first write (needs embeddings)
         from .config import SYSTEM_DOCS_VERSION
@@ -523,7 +734,7 @@ class Keeper:
                     p.max_size = max_size
 
     def _check_store_consistency(self) -> bool:
-        """Check if DocumentStore and ChromaDB ID sets match.
+        """Check if document store and vector store ID sets match.
 
         Returns True if reconciliation is needed. Does not fix —
         that is deferred to the first _upsert call when the
@@ -559,6 +770,7 @@ class Keeper:
             logger.debug("Background reconcile failed: %s", e)
         finally:
             self._reconcile_lock.release()
+            self._reconcile_done.set()
 
     def _auto_reconcile(self, chroma_coll: str, doc_coll: str) -> None:
         """Fix store divergence using summaries (no content re-fetch needed).
@@ -645,7 +857,7 @@ class Keeper:
                     filename = Path(doc.id.replace("file://", "")).name
                     new_id = filename_to_id.get(filename)
                     if new_id and not self.exists(new_id):
-                        self.remember(doc.summary, id=new_id, tags=doc.tags)
+                        self.put(doc.summary, id=new_id, tags=doc.tags)
                         self.delete(doc.id)
                         stats["migrated"] += 1
                         logger.info("Migrated system doc: %s -> %s", doc.id, new_id)
@@ -662,7 +874,7 @@ class Keeper:
             try:
                 old_item = self.get(old_id)
                 if old_item and not self.exists(new_id):
-                    self.remember(old_item.summary, id=new_id, tags=old_item.tags)
+                    self.put(old_item.summary, id=new_id, tags=old_item.tags)
                     self.delete(old_id)
                     stats["migrated"] += 1
                     logger.info("Renamed ID: %s -> %s", old_id, new_id)
@@ -780,12 +992,8 @@ class Keeper:
         """
         Get embedding provider, creating it lazily on first use.
 
-        This allows read-only operations to work offline without loading
-        the embedding model (which may try to reach HuggingFace).
-
-        For MLX (local GPU) providers, wraps with a lifecycle lock that
-        serializes model access across processes to prevent GPU memory
-        exhaustion.
+        This allows read-only operations to work without loading
+        the embedding model upfront.
         """
         if self._embedding_provider is None:
             if self._config.embedding is None:
@@ -827,11 +1035,7 @@ class Keeper:
         return self._embedding_provider
 
     def _get_summarization_provider(self) -> SummarizationProvider:
-        """
-        Get summarization provider, creating it lazily on first use.
-
-        For MLX (local GPU) providers, wraps with a lifecycle lock.
-        """
+        """Get summarization provider, creating it lazily on first use."""
         if self._summarization_provider is None:
             registry = get_registry()
             provider = registry.create_summarization(
@@ -847,12 +1051,40 @@ class Keeper:
             self._summarization_provider = provider
         return self._summarization_provider
 
+    def _release_summarization_provider(self) -> None:
+        """Release summarization model to free GPU/unified memory.
+
+        Safe to call at any time — the lazy getter will reconstruct
+        the provider on next use.
+        """
+        if self._summarization_provider is not None:
+            if hasattr(self._summarization_provider, 'release'):
+                self._summarization_provider.release()
+            self._summarization_provider = None
+
+    def _release_embedding_provider(self) -> None:
+        """Release embedding model to free GPU/unified memory.
+
+        Also closes the embedding cache. Safe to call at any time —
+        the lazy getter will reconstruct both on next use.
+        """
+        if self._embedding_provider is not None:
+            # Release the locked inner provider (frees model weights)
+            inner = getattr(self._embedding_provider, '_provider', None)
+            if hasattr(inner, 'release'):
+                inner.release()
+            # Close the embedding cache
+            if hasattr(self._embedding_provider, '_cache'):
+                cache = self._embedding_provider._cache
+                if hasattr(cache, 'close'):
+                    cache.close()
+            self._embedding_provider = None
+
     def _get_media_describer(self) -> Optional[MediaDescriber]:
         """
         Get media describer, creating it lazily on first use.
 
         Returns None if no media provider is configured or creation fails.
-        For MLX (local GPU) providers, wraps with a lifecycle lock.
         """
         if self._media_describer is None:
             if self._config.media is None:
@@ -898,7 +1130,7 @@ class Keeper:
 
         # Get similar items (broader search, we'll filter by tags)
         try:
-            similar = self.find_similar(id, limit=20)
+            similar = self.find(similar_to=id, limit=20)
         except KeyError:
             # Item not found yet (first indexing) - no context available
             return None
@@ -950,7 +1182,7 @@ class Keeper:
 
         On first use, records the embedding identity to config.
         On subsequent uses, if the provider changed, silently updates config
-        and triggers background reindex into the new ChromaDB collection.
+        and triggers background reindex into the new vector store collection.
         """
         # Get current provider's identity
         current = EmbeddingIdentity(
@@ -983,7 +1215,7 @@ class Keeper:
                 self._trigger_background_reindex()
 
     def _trigger_background_reindex(self) -> None:
-        """Spawn background thread to populate new ChromaDB collection from DocumentStore."""
+        """Spawn background thread to populate new vector collection from document store."""
         import threading
         chroma_coll = self._resolve_chroma_collection()
         doc_coll = self._resolve_doc_collection()
@@ -1001,7 +1233,7 @@ class Keeper:
             logger.warning("Background reindex failed: %s", e)
 
     def _background_reindex(self, chroma_coll: str, doc_coll: str) -> None:
-        """Populate ChromaDB collection from DocumentStore summaries using batch embedding."""
+        """Populate vector collection from document store summaries using batch embedding."""
         doc_ids = self._document_store.list_ids(doc_coll)
         if not doc_ids:
             return
@@ -1070,7 +1302,7 @@ class Keeper:
         """
         Rebuild search index with current embedding provider (foreground).
 
-        Re-embeds all items from DocumentStore into the current ChromaDB
+        Re-embeds all items from the document store into the current vector
         collection. Use as an explicit backstop when background reindex
         didn't complete.
 
@@ -1143,7 +1375,7 @@ class Keeper:
         return self._config.embedding_identity
     
     def _resolve_chroma_collection(self) -> str:
-        """ChromaDB collection name derived from embedding identity."""
+        """Vector collection name derived from embedding identity."""
         if self._config.embedding_identity:
             return self._config.embedding_identity.key
         return "default"
@@ -1152,6 +1384,45 @@ class Keeper:
         """DocumentStore collection — always 'default'."""
         return "default"
     
+    # -------------------------------------------------------------------------
+    # Constrained Tag Validation
+    # -------------------------------------------------------------------------
+
+    def _validate_constrained_tags(self, tags: dict[str, str]) -> None:
+        """Check constrained tag values against sub-doc existence.
+
+        For each user tag, looks up `.tag/KEY`. If that doc exists and has
+        `_constrained=true`, checks that `.tag/KEY/VALUE` exists. Raises
+        ValueError with valid values listed if not.
+        """
+        doc_coll = self._resolve_doc_collection()
+        for key, value in tags.items():
+            if key.startswith(SYSTEM_TAG_PREFIX):
+                continue
+            if value == "":
+                continue  # deletion, no validation needed
+            parent_id = f".tag/{key}"
+            parent = self._document_store.get(doc_coll, parent_id)
+            if parent is None:
+                continue  # no tag doc → unconstrained
+            if parent.tags.get("_constrained") != "true":
+                continue  # tag doc exists but not constrained
+            # Check sub-doc existence
+            value_id = f".tag/{key}/{value}"
+            if not self._document_store.get(doc_coll, value_id):
+                valid = self._list_constrained_values(key)
+                raise ValueError(
+                    f"Invalid value for constrained tag '{key}': {value!r}. "
+                    f"Valid values: {', '.join(sorted(valid))}"
+                )
+
+    def _list_constrained_values(self, key: str) -> list[str]:
+        """List valid values for a constrained tag by finding sub-docs."""
+        doc_coll = self._resolve_doc_collection()
+        prefix = f".tag/{key}/"
+        docs = self._document_store.query_by_id_prefix(doc_coll, prefix)
+        return [doc.id[len(prefix):] for doc in docs]
+
     # -------------------------------------------------------------------------
     # Write Operations
     # -------------------------------------------------------------------------
@@ -1165,7 +1436,7 @@ class Keeper:
         summary: Optional[str] = None,
         system_tags: dict[str, str],
     ) -> Item:
-        """Core upsert logic shared by update() and remember()."""
+        """Core upsert logic used by put()."""
         doc_coll = self._resolve_doc_collection()
         chroma_coll = self._resolve_chroma_collection()
 
@@ -1191,13 +1462,15 @@ class Keeper:
         merged_tags = {**existing_tags}
 
         if self._config.default_tags:
-            merged_tags.update(self._config.default_tags)
+            merged_tags.update(casefold_tags(self._config.default_tags))
 
-        env_tags = _get_env_tags()
-        merged_tags.update(env_tags)
+        merged_tags.update(self._env_tags)
 
         if tags:
-            merged_tags.update(filter_non_system_tags(tags))
+            user_tags = casefold_tags(filter_non_system_tags(tags))
+            merged_tags.update(user_tags)
+            # Validate constrained tags (only user-provided, not existing/env)
+            self._validate_constrained_tags(user_tags)
 
         merged_tags.update(system_tags)
 
@@ -1214,7 +1487,7 @@ class Keeper:
         # Early return: nothing to do
         if content_unchanged and not tags_changed and summary is None:
             logger.debug("Content and tags unchanged, skipping for %s", id)
-            return _record_to_item(existing_doc)
+            return _record_to_item(existing_doc, changed=False)
 
         # Get embedding: reuse stored if content unchanged, compute if new/changed
         if content_unchanged:
@@ -1288,156 +1561,151 @@ class Keeper:
         if self._is_local and summary is None and len(content) > max_len and (not content_unchanged or tags_changed):
             self._spawn_processor()
 
-        return _record_to_item(result)
+        return _record_to_item(result, changed=not content_unchanged)
 
-    def update(
+    def put(
         self,
-        id: str,
-        tags: Optional[dict[str, str]] = None,
+        content: Optional[str] = None,
         *,
+        uri: Optional[str] = None,
+        id: Optional[str] = None,
         summary: Optional[str] = None,
-        source_tags: Optional[dict[str, str]] = None,  # Deprecated alias
+        tags: Optional[dict[str, str]] = None,
     ) -> Item:
         """
-        Insert or update a document in the store.
+        Store content in the memory.
 
-        Fetches the document, generates embeddings and summary, then stores it.
+        Provide either inline content or a URI to fetch — not both.
 
-        **Summary behavior:**
-        - If summary is provided, use it (skips auto-summarization)
-        - For large content, summarization is async (truncated placeholder
-          stored immediately, real summary generated in background)
+        **Inline mode** (content provided):
+        - Stores text directly. Auto-generates an ID if not provided.
+        - Short content is used verbatim as summary. Large content gets
+          async summarization (truncated placeholder stored immediately).
 
-        **Update behavior:**
-        - Summary: Replaced with user-provided or newly generated summary
-        - Tags: Merged - existing tags are preserved, new tags override
-          on key collision. System tags (prefixed with _) are always managed by
-          the system.
+        **URI mode** (uri provided):
+        - Fetches the document, extracts text, generates embeddings.
+        - Supports file://, http://, https:// URIs.
+        - Non-text content (images, audio, PDF) gets media description.
+
+        **Tag and summary behavior:**
+        - Tags are merged with existing tags (new override on collision).
+        - System tags (_prefixed) are managed automatically.
+        - If summary is provided, it's used directly (skips auto-summarization).
 
         Args:
-            id: URI of document to fetch and index
+            content: Inline text to store
+            uri: URI of document to fetch and index
+            id: Custom ID (auto-generated for inline content if None)
+            summary: User-provided summary (skips auto-summarization)
             tags: User-provided tags to merge with existing tags
-            summary: User-provided summary (skips auto-summarization if given)
-            source_tags: Deprecated alias for 'tags'
 
         Returns:
-            The stored Item with merged tags and new summary
+            The stored Item with merged tags and summary
         """
-        if source_tags is not None:
-            import warnings
-            warnings.warn(
-                "source_tags is deprecated, use 'tags' instead",
-                DeprecationWarning,
-                stacklevel=2
-            )
-            if tags is None:
-                tags = source_tags
+        if content is not None and uri is not None:
+            raise ValueError("Provide content or uri, not both")
+        if content is None and uri is None:
+            raise ValueError("Either content or uri is required")
 
-        # Validate inputs
-        validate_id(id)
+        # Validate and normalize tags (shared by both URI and inline paths)
         if tags:
+            tags = casefold_tags(tags)
             for key, value in tags.items():
                 if not key.startswith(SYSTEM_TAG_PREFIX):
                     validate_tag_key(key)
                     if len(value) > MAX_TAG_VALUE_LENGTH:
                         raise ValueError(f"Tag value too long (max {MAX_TAG_VALUE_LENGTH}): {key!r}")
-
-        doc = self._document_provider.fetch(id)
-
-        # Merge provider-extracted tags with user tags (user wins on collision)
-        merged_tags: dict[str, str] | None = None
-        if doc.tags or tags:
-            merged_tags = {}
-            if doc.tags:
-                merged_tags.update(doc.tags)
-            if tags:
-                merged_tags.update(tags)  # User tags override provider tags
-
-        # Media description: enrich non-text content with model-based description
-        if doc.content_type and not doc.content_type.startswith("text/"):
-            describer = self._get_media_describer()
-            if describer:
-                try:
-                    file_path = id.removeprefix("file://") if id.startswith("file://") else id
-                    description = describer.describe(file_path, doc.content_type)
-                    if description:
-                        doc = Document(
-                            uri=doc.uri,
-                            content=doc.content + "\n\nDescription:\n" + description,
-                            content_type=doc.content_type,
-                            metadata=doc.metadata,
-                            tags=doc.tags,
-                        )
-                        logger.info("Added media description for %s (%d chars)",
-                                    id, len(description))
-                except Exception as e:
-                    logger.warning("Media description failed for %s: %s", id, e)
-
-        system_tags = {"_source": "uri"}
-        if doc.content_type:
-            system_tags["_content_type"] = doc.content_type
-
-        return self._upsert(
-            id, doc.content,
-            tags=merged_tags, summary=summary,
-            system_tags=system_tags,
-        )
-
-    def remember(
-        self,
-        content: str,
-        *,
-        id: Optional[str] = None,
-        summary: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
-        source_tags: Optional[dict[str, str]] = None,  # Deprecated alias
-    ) -> Item:
-        """
-        Store inline content directly (without fetching from a URI).
-
-        Use for conversation snippets, notes, insights.
-
-        **Smart summary behavior:**
-        - If summary is provided, use it (skips auto-summarization)
-        - If content is short (≤ max_summary_length), use content verbatim
-        - For large content, summarization is async (truncated placeholder
-          stored immediately, real summary generated in background)
-
-        **Update behavior (when id already exists):**
-        - Summary: Replaced with user-provided, content, or generated summary
-        - Tags: Merged - existing tags preserved, new tags override
-          on key collision. System tags (prefixed with _) are always managed by
-          the system.
-
-        Args:
-            content: Text to store and index
-            id: Optional custom ID (auto-generated if None)
-            summary: User-provided summary (skips auto-summarization if given)
-            tags: User-provided tags to merge with existing tags
-            source_tags: Deprecated alias for 'tags'
-
-        Returns:
-            The stored Item with merged tags and new summary
-        """
-        if source_tags is not None:
-            import warnings
-            warnings.warn(
-                "source_tags is deprecated, use 'tags' instead",
-                DeprecationWarning,
-                stacklevel=2
+            self._validate_constrained_tags(
+                {k: v for k, v in tags.items()
+                 if not k.startswith(SYSTEM_TAG_PREFIX) and v != ""}
             )
-            if tags is None:
-                tags = source_tags
 
-        if id is None:
-            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")
-            id = f"mem:{timestamp}"
+        if uri is not None:
+            # URI mode: fetch document, extract content, store
+            validate_id(uri)
 
-        return self._upsert(
-            id, content,
-            tags=tags, summary=summary,
-            system_tags={"_source": "inline"},
-        )
+            # Fast path for local files: skip expensive read if stat unchanged
+            is_file_uri = uri.startswith("file://") or uri.startswith("/")
+            if is_file_uri and summary is None:
+                try:
+                    fpath = Path(uri.removeprefix("file://")).resolve()
+                    st = fpath.stat()
+                    doc_coll = self._resolve_doc_collection()
+                    existing = self._document_store.get(doc_coll, uri)
+                    if (existing
+                            and existing.tags.get("_file_mtime_ns") == str(st.st_mtime_ns)
+                            and existing.tags.get("_file_size") == str(st.st_size)):
+                        # File stat unchanged — check if tags would also be unchanged
+                        if not tags or not _user_tags_changed(
+                                existing.tags,
+                                {**filter_non_system_tags(existing.tags),
+                                 **casefold_tags(tags)}):
+                            logger.debug("File stat unchanged, skipping read for %s", uri)
+                            return _record_to_item(existing, changed=False)
+                except OSError:
+                    pass  # Fall through to normal fetch
+
+            doc = self._document_provider.fetch(uri)
+
+            # Merge provider-extracted tags with user tags (user wins on collision)
+            merged_tags: dict[str, str] | None = None
+            if doc.tags or tags:
+                merged_tags = {}
+                if doc.tags:
+                    merged_tags.update(doc.tags)
+                if tags:
+                    merged_tags.update(tags)
+
+            # Media description: enrich non-text content
+            if doc.content_type and not doc.content_type.startswith("text/"):
+                describer = self._get_media_describer()
+                if describer:
+                    try:
+                        file_path = uri.removeprefix("file://") if uri.startswith("file://") else uri
+                        description = describer.describe(file_path, doc.content_type)
+                        if description:
+                            doc = Document(
+                                uri=doc.uri,
+                                content=doc.content + "\n\nDescription:\n" + description,
+                                content_type=doc.content_type,
+                                metadata=doc.metadata,
+                                tags=doc.tags,
+                            )
+                            logger.info("Added media description for %s (%d chars)",
+                                        uri, len(description))
+                    except Exception as e:
+                        logger.warning("Media description failed for %s: %s", uri, e)
+
+            system_tags = {"_source": "uri"}
+            if doc.content_type:
+                system_tags["_content_type"] = doc.content_type
+
+            # Store file stat for fast-path change detection on next put
+            if is_file_uri and doc.metadata:
+                try:
+                    fpath = Path(uri.removeprefix("file://")).resolve()
+                    st = fpath.stat()
+                    system_tags["_file_mtime_ns"] = str(st.st_mtime_ns)
+                    system_tags["_file_size"] = str(st.st_size)
+                except OSError:
+                    pass
+
+            return self._upsert(
+                uri, doc.content,
+                tags=merged_tags, summary=summary,
+                system_tags=system_tags,
+            )
+        else:
+            # Inline mode: store content directly
+            if id is None:
+                timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")
+                id = f"mem:{timestamp}"
+
+            return self._upsert(
+                id, content,
+                tags=tags, summary=summary,
+                system_tags={"_source": "inline"},
+            )
 
     # -------------------------------------------------------------------------
     # Query Operations
@@ -1490,92 +1758,73 @@ class Keeper:
     
     def find(
         self,
-        query: str,
+        query: Optional[str] = None,
         *,
-        limit: int = 10,
-        since: Optional[str] = None,
-        include_hidden: bool = False,
-    ) -> list[Item]:
-        """
-        Find items using semantic similarity search.
-
-        Scores are adjusted by recency decay (ACT-R model) - older items
-        have reduced effective relevance unless recently accessed.
-
-        Args:
-            query: Search query text
-            limit: Maximum results to return
-            since: Only include items updated since (ISO duration like P3D, or date)
-            include_hidden: Include system notes (dot-prefix IDs)
-        """
-        chroma_coll = self._resolve_chroma_collection()
-        doc_coll = self._resolve_doc_collection()
-
-        # Embed query
-        embedding = self._get_embedding_provider().embed(query)
-
-        # Search (fetch extra to account for re-ranking, date filtering, hidden filtering)
-        fetch_limit = limit * 3 if self._decay_half_life_days > 0 else limit * 2
-        results = self._store.query_embedding(chroma_coll, embedding, limit=fetch_limit)
-
-        # Convert to Items and apply decay
-        items = [r.to_item() for r in results]
-        items = self._apply_recency_decay(items)
-
-        # Apply filters
-        if since is not None:
-            items = _filter_by_date(items, since)
-        if not include_hidden:
-            items = [i for i in items if not _is_hidden(i)]
-
-        final = items[:limit]
-        # Touch accessed_at for returned items
-        if final:
-            self._document_store.touch_many(doc_coll, [i.id for i in final])
-        return final
-
-    def find_similar(
-        self,
-        id: str,
-        *,
+        similar_to: Optional[str] = None,
+        fulltext: bool = False,
         limit: int = 10,
         since: Optional[str] = None,
         include_self: bool = False,
         include_hidden: bool = False,
     ) -> list[Item]:
         """
-        Find items similar to an existing item.
+        Find items by semantic similarity, full-text search, or similarity to an existing note.
+
+        Exactly one of `query` or `similar_to` must be provided.
 
         Args:
-            id: ID of item to find similar items for
+            query: Search query text (semantic by default, fulltext if fulltext=True)
+            similar_to: Find items similar to this note ID
+            fulltext: Use full-text search instead of semantic similarity (only with query)
             limit: Maximum results to return
             since: Only include items updated since (ISO duration like P3D, or date)
-            include_self: Include the queried item in results
+            include_self: Include the queried item in results (only with similar_to)
             include_hidden: Include system notes (dot-prefix IDs)
         """
+        if query and similar_to:
+            raise ValueError("Specify either query or similar_to, not both")
+        if not query and not similar_to:
+            raise ValueError("Specify either query or similar_to")
+        if fulltext and similar_to:
+            raise ValueError("fulltext cannot be used with similar_to")
+
         chroma_coll = self._resolve_chroma_collection()
         doc_coll = self._resolve_doc_collection()
 
-        # Get the item's stored embedding from ChromaDB
-        item = self._store.get(chroma_coll, id)
-        if item is None:
-            raise KeyError(f"Item not found: {id}")
+        if similar_to:
+            # Similar-to mode: use stored embedding from existing item
+            item = self._store.get(chroma_coll, similar_to)
+            if item is None:
+                raise KeyError(f"Item not found: {similar_to}")
 
-        embedding = self._store.get_embedding(chroma_coll, id)
-        if embedding is None:
-            embedding = self._get_embedding_provider().embed(item.summary)
-        actual_limit = (limit + 1 if not include_self else limit) * 3
-        results = self._store.query_embedding(chroma_coll, embedding, limit=actual_limit)
+            embedding = self._store.get_embedding(chroma_coll, similar_to)
+            if embedding is None:
+                embedding = self._get_embedding_provider().embed(item.summary)
+            actual_limit = (limit + 1 if not include_self else limit) * 3
+            results = self._store.query_embedding(chroma_coll, embedding, limit=actual_limit)
 
-        # Filter self if needed
-        if not include_self:
-            results = [r for r in results if r.id != id]
+            if not include_self:
+                results = [r for r in results if r.id != similar_to]
 
-        # Convert to Items and apply decay
-        items = [r.to_item() for r in results]
-        items = self._apply_recency_decay(items)
+            items = [r.to_item() for r in results]
+            items = self._apply_recency_decay(items)
 
-        # Apply filters
+        elif fulltext:
+            # Full-text mode: text matching
+            fetch_limit = limit * 3
+            results = self._store.query_fulltext(chroma_coll, query, limit=fetch_limit)
+            items = [r.to_item() for r in results]
+
+        else:
+            # Semantic mode (default): embed query, search by similarity
+            embedding = self._get_embedding_provider().embed(query)
+            fetch_limit = limit * 3 if self._decay_half_life_days > 0 else limit * 2
+            results = self._store.query_embedding(chroma_coll, embedding, limit=fetch_limit)
+
+            items = [r.to_item() for r in results]
+            items = self._apply_recency_decay(items)
+
+        # Apply common filters
         if since is not None:
             items = _filter_by_date(items, since)
         if not include_hidden:
@@ -1825,7 +2074,7 @@ class Keeper:
         """
         Rank candidate items by similarity to anchor + recency decay.
 
-        Uses stored embeddings from ChromaDB — no re-embedding needed.
+        Uses stored embeddings — no re-embedding needed.
         Falls back to recency-only ranking if embeddings unavailable.
         """
         import math
@@ -1875,43 +2124,6 @@ class Keeper:
         candidates.sort(key=lambda x: x.score or 0.0, reverse=True)
         return candidates
 
-    def query_fulltext(
-        self,
-        query: str,
-        *,
-        limit: int = 10,
-        since: Optional[str] = None,
-        include_hidden: bool = False,
-    ) -> list[Item]:
-        """
-        Search item summaries using full-text search.
-
-        Args:
-            query: Text to search for in summaries
-            limit: Maximum results to return
-            since: Only include items updated since (ISO duration like P3D, or date)
-            include_hidden: Include system notes (dot-prefix IDs)
-        """
-        chroma_coll = self._resolve_chroma_collection()
-        doc_coll = self._resolve_doc_collection()
-
-        # Fetch extra when filtering
-        fetch_limit = limit * 3
-        results = self._store.query_fulltext(chroma_coll, query, limit=fetch_limit)
-        items = [r.to_item() for r in results]
-
-        # Apply filters
-        if since is not None:
-            items = _filter_by_date(items, since)
-        if not include_hidden:
-            items = [i for i in items if not _is_hidden(i)]
-
-        final = items[:limit]
-        # Touch accessed_at for returned items
-        if final:
-            self._document_store.touch_many(doc_coll, [i.id for i in final])
-        return final
-
     def query_tag(
         self,
         key: Optional[str] = None,
@@ -1942,6 +2154,13 @@ class Keeper:
             since: Only include items updated since (ISO duration like P3D, or date)
             **tags: Additional tag filters as keyword arguments
         """
+        # Casefold query keys/values to match casefolded storage
+        if key is not None:
+            key = key.casefold()
+        if value is not None:
+            value = value.casefold()
+        tags = {k.casefold(): v.casefold() for k, v in tags.items()}
+
         # Validate tag keys
         if key is not None:
             validate_tag_key(key)
@@ -2030,7 +2249,7 @@ class Keeper:
         """
         Retrieve a specific item by ID.
 
-        Reads from document store (canonical), falls back to ChromaDB for legacy data.
+        Reads from document store (canonical), falls back to vector store for legacy data.
         Touches accessed_at on successful retrieval.
         """
         validate_id(id)
@@ -2040,10 +2259,12 @@ class Keeper:
         # Try document store first (canonical)
         try:
             doc_record = self._document_store.get(doc_coll, id)
-        except sqlite3.DatabaseError as e:
+        except Exception as e:
             logger.warning("DocumentStore.get(%s) failed: %s", id, e)
-            if "malformed" in str(e):
-                self._document_store._try_runtime_recover()
+            if self._is_local and "malformed" in str(e):
+                # SQLite-specific recovery — only for local backends
+                if hasattr(self._document_store, '_try_runtime_recover'):
+                    self._document_store._try_runtime_recover()
                 # Retry once after recovery
                 try:
                     doc_record = self._document_store.get(doc_coll, id)
@@ -2219,6 +2440,10 @@ class Keeper:
         # Delete the versioned entry from ChromaDB
         self._store.delete_entries(chroma_coll, [versioned_chroma_id])
 
+        # Clean up stale parts (structural decomposition of old content)
+        self._store.delete_parts(chroma_coll, id)
+        self._document_store.delete_parts(doc_coll, id)
+
         return self.get(id)
 
     # -------------------------------------------------------------------------
@@ -2257,7 +2482,7 @@ class Keeper:
         """
         Set the current working intentions.
 
-        Updates the singleton intentions with new content. Uses remember()
+        Updates the singleton intentions with new content. Uses put()
         internally with the fixed NOWDOC_ID.
 
         Args:
@@ -2267,7 +2492,7 @@ class Keeper:
         Returns:
             The updated context Item
         """
-        return self.remember(content, id=NOWDOC_ID, tags=tags)
+        return self.put(content, id=NOWDOC_ID, tags=tags)
 
     def move(
         self,
@@ -2490,7 +2715,7 @@ class Keeper:
 
                 # Delete existing (if any) and create fresh
                 self.delete(new_id)
-                self.remember(content, id=new_id, tags=tags)
+                self.put(content, id=new_id, tags=tags)
                 self._document_store.upsert(
                     collection=doc_coll, id=new_id, summary=content,
                     tags=self._document_store.get(doc_coll, new_id).tags,
@@ -2536,11 +2761,18 @@ class Keeper:
         # Validate inputs
         validate_id(id)
         if tags:
+            # Casefold user tags on write
+            tags = casefold_tags(tags)
             for key, value in tags.items():
                 if not key.startswith(SYSTEM_TAG_PREFIX):
                     validate_tag_key(key)
                     if len(value) > MAX_TAG_VALUE_LENGTH:
                         raise ValueError(f"Tag value too long (max {MAX_TAG_VALUE_LENGTH}): {key!r}")
+            # Validate constrained tags
+            self._validate_constrained_tags(
+                {k: v for k, v in tags.items()
+                 if not k.startswith(SYSTEM_TAG_PREFIX) and v != ""}
+            )
 
         # Get existing item (prefer document store, fall back to ChromaDB)
         existing = self.get(id)
@@ -2576,9 +2808,230 @@ class Keeper:
         return self.get(id)
 
     # -------------------------------------------------------------------------
+    # Parts (structural decomposition)
+    # -------------------------------------------------------------------------
+
+    def analyze(
+        self,
+        id: str,
+        *,
+        provider: Optional["SummarizationProvider"] = None,
+        tags: Optional[list[str]] = None,
+        force: bool = False,
+    ) -> list[PartInfo]:
+        """
+        Decompose a note or string into meaningful parts.
+
+        For URI-sourced documents: decomposes the document content structurally.
+        For inline notes (strings): assembles the version history and decomposes
+        the temporal sequence into episodic parts.
+
+        Uses an LLM to identify sections with summaries and tags.
+        Re-analysis replaces all previous parts atomically.
+
+        Skips analysis if the document's content_hash matches the stored
+        _analyzed_hash tag (parts are already current). Use force=True
+        to override.
+
+        Args:
+            id: Document or string to analyze
+            provider: Override LLM provider for decomposition
+                (default: use configured summarization provider)
+            tags: Guidance tag keys (e.g., ["topic", "type"]) —
+                fetches .tag/xxx descriptions as decomposition context
+            force: Skip the _analyzed_hash check and re-analyze regardless
+
+        Returns:
+            List of PartInfo for the created parts (empty list if skipped)
+        """
+        validate_id(id)
+        doc_coll = self._resolve_doc_collection()
+        chroma_coll = self._resolve_chroma_collection()
+
+        # Get the document
+        doc_record = self._document_store.get(doc_coll, id)
+        if doc_record is None:
+            raise ValueError(f"Document not found: {id}")
+
+        # Skip if parts are already current (content unchanged since last analysis)
+        if not force and doc_record.content_hash:
+            analyzed_hash = doc_record.tags.get("_analyzed_hash")
+            if analyzed_hash and analyzed_hash == doc_record.content_hash:
+                logger.info("Skipping analysis for %s: parts already current", id)
+                return self.list_parts(id)
+
+        # Get content to analyze.
+        # For URI sources: re-fetch the document content.
+        # For inline sources (strings): concatenate the version history,
+        # giving the LLM the full temporal sequence to decompose.
+        content = None
+        source = doc_record.tags.get("_source")
+        if source == "uri":
+            try:
+                doc = self._document_provider.fetch(id)
+                content = doc.content
+            except Exception as e:
+                logger.warning("Could not re-fetch %s: %s, using summary", id, e)
+
+        if not content:
+            # For inline notes, assemble the version string (history + current)
+            versions = self._document_store.list_versions(doc_coll, id, limit=100)
+            if versions:
+                # Build chronological sequence (oldest first)
+                sections = []
+                for v in reversed(versions):
+                    date_str = v.created_at[:10] if v.created_at else ""
+                    sections.append(f"[{date_str}]\n{v.summary}")
+                # Add current as newest
+                sections.append(f"[current]\n{doc_record.summary}")
+                content = "\n\n---\n\n".join(sections)
+            else:
+                content = doc_record.summary
+
+        if not content or len(content.strip()) < 50:
+            raise ValueError(f"Document content too short to analyze: {id}")
+
+        # Build guide context from tag descriptions
+        guide_context = ""
+        if tags:
+            guide_parts = []
+            for tag_key in tags:
+                tag_doc_id = f".tag/{tag_key}"
+                tag_doc = self._document_store.get(doc_coll, tag_doc_id)
+                if tag_doc:
+                    guide_parts.append(
+                        f"## Tag: {tag_key}\n{tag_doc.summary}"
+                    )
+            if guide_parts:
+                guide_context = "\n\n".join(guide_parts)
+
+        # Get the provider for decomposition.
+        # Wait for any background reconciliation to finish first — both
+        # sentence-transformers (embedding) and mlx-lm (summarization)
+        # import the `transformers` package, and concurrent imports
+        # corrupt module state (Python import lock is per-module).
+        if provider is None:
+            self._reconcile_done.wait(timeout=30)
+            provider = self._get_summarization_provider()
+
+        # Call LLM decomposition
+        raw_parts = _call_decomposition_llm(provider, content, guide_context)
+
+        if not raw_parts:
+            # Fallback to simple chunking
+            raw_parts = _simple_chunk_decomposition(content)
+
+        # Content not decomposable — single section is redundant with the note
+        if len(raw_parts) <= 1:
+            logger.info("Content not decomposable into multiple parts: %s", id)
+            return []
+
+        # Build PartInfo list
+        from .types import utc_now
+        now = utc_now()
+
+        # Inherit parent's non-system tags
+        parent_tags = {
+            k: v for k, v in doc_record.tags.items()
+            if not k.startswith(SYSTEM_TAG_PREFIX)
+        }
+
+        parts: list[PartInfo] = []
+        for i, raw in enumerate(raw_parts, 1):
+            part_tags = dict(parent_tags)
+            # Merge part-specific tags from LLM
+            if raw.get("tags"):
+                part_tags.update(raw["tags"])
+
+            part_content = raw.get("content", "")
+            part_summary = raw.get("summary", part_content[:200])
+
+            parts.append(PartInfo(
+                part_num=i,
+                summary=part_summary,
+                tags=part_tags,
+                content=part_content,
+                created_at=now,
+            ))
+
+        # Delete existing parts (re-analysis = fresh decomposition)
+        self._store.delete_parts(chroma_coll, id)
+        self._document_store.delete_parts(doc_coll, id)
+
+        # Store parts in document store
+        self._document_store.upsert_parts(doc_coll, id, parts)
+
+        # Release summarization model before loading embedding model.
+        # Both MLX models resident simultaneously can exhaust unified memory.
+        self._release_summarization_provider()
+
+        # Generate embeddings and store in vector store
+        embed = self._get_embedding_provider()
+        for part in parts:
+            embedding = embed.embed(part.summary)
+            self._store.upsert_part(
+                chroma_coll, id, part.part_num,
+                embedding, part.summary, part.tags,
+            )
+
+        # Record the content hash at which analysis was performed,
+        # so future calls can skip if content hasn't changed.
+        if doc_record.content_hash:
+            updated_tags = dict(doc_record.tags)
+            updated_tags["_analyzed_hash"] = doc_record.content_hash
+            self._document_store.update_tags(doc_coll, id, updated_tags)
+            self._store.update_tags(chroma_coll, id, updated_tags)
+
+        return parts
+
+    def get_part(self, id: str, part_num: int) -> Optional[Item]:
+        """
+        Get a specific part of a document.
+
+        Returns the part as an Item with _part_num, _base_id, and
+        _total_parts metadata tags.
+
+        Args:
+            id: Document identifier
+            part_num: Part number (1-indexed)
+
+        Returns:
+            Item if found, None otherwise
+        """
+        doc_coll = self._resolve_doc_collection()
+        part = self._document_store.get_part(doc_coll, id, part_num)
+        if part is None:
+            return None
+
+        total = self._document_store.part_count(doc_coll, id)
+        tags = dict(part.tags)
+        tags["_part_num"] = str(part.part_num)
+        tags["_base_id"] = id
+        tags["_total_parts"] = str(total)
+
+        return Item(
+            id=id,
+            summary=part.content if part.content else part.summary,
+            tags=tags,
+        )
+
+    def list_parts(self, id: str) -> list[PartInfo]:
+        """
+        List all parts for a document.
+
+        Args:
+            id: Document identifier
+
+        Returns:
+            List of PartInfo, ordered by part_num
+        """
+        doc_coll = self._resolve_doc_collection()
+        return self._document_store.list_parts(doc_coll, id)
+
+    # -------------------------------------------------------------------------
     # Collection Management
     # -------------------------------------------------------------------------
-    
+
     def list_collections(self) -> list[str]:
         """
         List all collections in the store.
@@ -2592,7 +3045,7 @@ class Keeper:
         """
         Count items in a collection.
 
-        Returns count from document store if available, else ChromaDB.
+        Returns count from document store if available, else vector store.
         """
         doc_coll = self._resolve_doc_collection()
         chroma_coll = self._resolve_chroma_collection()
@@ -2617,7 +3070,7 @@ class Keeper:
             limit: Maximum number to return (default 10)
             since: Only include items updated since (ISO duration like P3D, or date)
             order_by: Sort order - "updated" (default) or "accessed"
-            include_history: Include archived versions alongside current items
+            include_history: Include previous versions alongside current items
             include_hidden: Include system notes (dot-prefix IDs)
 
         Returns:
@@ -2655,21 +3108,70 @@ class Keeper:
         return {"enabled": False}
 
     # -------------------------------------------------------------------------
-    # Pending Summaries
+    # Pending Work Queue (summaries + analysis)
     # -------------------------------------------------------------------------
+
+    def enqueue_analyze(
+        self,
+        id: str,
+        tags: Optional[list[str]] = None,
+        force: bool = False,
+    ) -> bool:
+        """
+        Enqueue a note for background analysis (decomposition into parts).
+
+        Validates the document exists, then adds it to the pending work
+        queue for serial processing by the background daemon.
+
+        Skips enqueueing if the document's _analyzed_hash matches its
+        content_hash (parts are already current). Use force=True to
+        override.
+
+        Args:
+            id: Document ID to analyze
+            tags: Guidance tag keys for decomposition
+            force: Enqueue even if parts are already current
+
+        Returns:
+            True if enqueued, False if skipped (parts already current)
+        """
+        validate_id(id)
+        doc_coll = self._resolve_doc_collection()
+        doc = self._document_store.get(doc_coll, id)
+        if doc is None:
+            raise ValueError(f"Document not found: {id}")
+
+        # Skip if parts are already current
+        if not force and doc.content_hash:
+            analyzed_hash = doc.tags.get("_analyzed_hash")
+            if analyzed_hash and analyzed_hash == doc.content_hash:
+                logger.info("Skipping enqueue for %s: parts already current", id)
+                return False
+
+        metadata = {}
+        if tags:
+            metadata["tags"] = tags
+        if force:
+            metadata["force"] = True
+
+        self._pending_queue.enqueue(
+            id, doc_coll, "",
+            task_type="analyze",
+            metadata=metadata,
+        )
+        self._spawn_processor()
+        return True
 
     def process_pending(self, limit: int = 10) -> dict:
         """
-        Process pending summaries queued by lazy update/remember.
+        Process pending work items (summaries and analysis).
 
-        Generates real summaries for items that were indexed with
-        truncated placeholders. Updates the stored items in place.
-
-        When items have user tags (non-system tags), context is gathered
-        from similar items with matching tags to produce contextual summaries.
+        Handles two task types serially:
+        - "summarize": generates real summaries for lazy-indexed items
+        - "analyze": decomposes documents into parts via LLM
 
         Items that fail MAX_SUMMARY_ATTEMPTS times are removed from
-        the queue (the truncated placeholder remains in the store).
+        the queue.
 
         Args:
             limit: Maximum number of items to process in this batch
@@ -2684,38 +3186,33 @@ class Keeper:
             # Skip items that have failed too many times
             # (attempts was already incremented by dequeue, so check >= MAX)
             if item.attempts >= MAX_SUMMARY_ATTEMPTS:
-                # Give up - remove from queue, keep truncated placeholder
-                self._pending_queue.complete(item.id, item.collection)
+                # Give up - remove from queue
+                self._pending_queue.complete(
+                    item.id, item.collection, item.task_type
+                )
                 result["abandoned"] += 1
                 logger.warning(
-                    "Abandoned pending summary after %d attempts: %s",
-                    item.attempts, item.id
+                    "Abandoned pending %s after %d attempts: %s",
+                    item.task_type, item.attempts, item.id
                 )
                 continue
 
             try:
-                # Get item's tags for contextual summarization
-                doc = self._document_store.get(item.collection, item.id)
-                context = None
-                if doc:
-                    # Filter to user tags (non-system)
-                    user_tags = filter_non_system_tags(doc.tags)
-                    if user_tags:
-                        context = self._gather_context(
-                            item.id, user_tags
-                        )
-
-                # Generate real summary (with optional context)
-                summary = self._get_summarization_provider().summarize(
-                    item.content, context=context
-                )
-
-                # Update summary in both stores
-                self._document_store.update_summary(item.collection, item.id, summary)
-                self._store.update_summary(item.collection, item.id, summary)
+                if item.task_type == "analyze":
+                    self._process_pending_analyze(item)
+                    # analyze releases summarization internally;
+                    # release embedding after parts are embedded
+                    self._release_embedding_provider()
+                else:
+                    self._process_pending_summarize(item)
+                    # Release summarization model between items to
+                    # prevent both models residing in memory at once
+                    self._release_summarization_provider()
 
                 # Remove from queue
-                self._pending_queue.complete(item.id, item.collection)
+                self._pending_queue.complete(
+                    item.id, item.collection, item.task_type
+                )
                 result["processed"] += 1
 
             except Exception as e:
@@ -2723,10 +3220,39 @@ class Keeper:
                 result["failed"] += 1
                 error_msg = f"{item.id}: {type(e).__name__}: {e}"
                 result["errors"].append(error_msg)
-                logger.warning("Failed to summarize %s (attempt %d): %s",
-                             item.id, item.attempts, e)
+                logger.warning("Failed to %s %s (attempt %d): %s",
+                             item.task_type, item.id, item.attempts, e)
 
         return result
+
+    def _process_pending_summarize(self, item) -> None:
+        """Process a pending summarization work item."""
+        # Get item's tags for contextual summarization
+        doc = self._document_store.get(item.collection, item.id)
+        context = None
+        if doc:
+            # Filter to user tags (non-system)
+            user_tags = filter_non_system_tags(doc.tags)
+            if user_tags:
+                context = self._gather_context(
+                    item.id, user_tags
+                )
+
+        # Generate real summary (with optional context)
+        summary = self._get_summarization_provider().summarize(
+            item.content, context=context
+        )
+
+        # Update summary in both stores
+        self._document_store.update_summary(item.collection, item.id, summary)
+        self._store.update_summary(item.collection, item.id, summary)
+
+    def _process_pending_analyze(self, item) -> None:
+        """Process a pending analysis work item."""
+        tags = item.metadata.get("tags") if item.metadata else None
+        force = item.metadata.get("force", False) if item.metadata else False
+        parts = self.analyze(item.id, tags=tags, force=force)
+        logger.info("Analyzed %s into %d parts", item.id, len(parts))
 
     def pending_count(self) -> int:
         """Get count of pending summaries awaiting processing."""
@@ -2739,6 +3265,16 @@ class Keeper:
         Returns dict with: pending, collections, max_attempts, oldest, queue_path
         """
         return self._pending_queue.stats()
+
+    def pending_status(self, id: str) -> Optional[dict]:
+        """
+        Get pending task status for a specific note.
+
+        Returns dict with id, task_type, status, queued_at if the note
+        has pending work, or None if no work is pending. Requires a
+        queue implementation that supports get_status().
+        """
+        return self._pending_queue.get_status(id)
 
     @property
     def _processor_pid_path(self) -> Path:
@@ -2813,17 +3349,17 @@ class Keeper:
         fix: bool = False,
     ) -> dict:
         """
-        Check and optionally fix consistency between DocumentStore and ChromaDB.
+        Check and optionally fix consistency between document store and vector store.
 
         Detects:
-        - Documents in DocumentStore missing from ChromaDB (not searchable)
-        - Documents in ChromaDB missing from DocumentStore (orphaned embeddings)
+        - Documents in document store missing from vector store (not searchable)
+        - Documents in vector store missing from document store (orphaned embeddings)
 
         Args:
-            fix: If True, re-index documents missing from ChromaDB
+            fix: If True, re-index documents missing from vector store
 
         Returns:
-            Dict with 'missing_from_chroma', 'orphaned_in_chroma', 'fixed' counts
+            Dict with 'missing_from_index', 'orphaned_in_index', 'fixed' counts
         """
         doc_coll = self._resolve_doc_collection()
         chroma_coll = self._resolve_chroma_collection()
@@ -2867,8 +3403,8 @@ class Keeper:
                     logger.warning("Failed to remove orphan %s: %s", orphan_id, e)
 
         return {
-            "missing_from_chroma": len(missing_from_chroma),
-            "orphaned_in_chroma": len(orphaned_in_chroma),
+            "missing_from_index": len(missing_from_chroma),
+            "orphaned_in_index": len(orphaned_in_chroma),
             "fixed": fixed,
             "removed": removed,
             "missing_ids": list(missing_from_chroma) if missing_from_chroma else [],
@@ -2887,20 +3423,14 @@ class Keeper:
         Releases model locks (freeing GPU memory) before releasing file locks,
         ensuring the next process gets a clean GPU.
         """
-        # Release locked model providers (frees GPU memory + gc before flock release)
-        if self._embedding_provider is not None:
-            # The locked provider may be inside a CachingEmbeddingProvider
-            inner = getattr(self._embedding_provider, '_provider', None)
-            if hasattr(inner, 'release'):
-                inner.release()
-
-        if self._summarization_provider is not None:
-            if hasattr(self._summarization_provider, 'release'):
-                self._summarization_provider.release()
+        # Release locked model providers (frees GPU memory + gc)
+        self._release_embedding_provider()
+        self._release_summarization_provider()
 
         if self._media_describer is not None:
             if hasattr(self._media_describer, 'release'):
                 self._media_describer.release()
+            self._media_describer = None
 
         # Close ChromaDB store
         if hasattr(self, '_store') and self._store is not None:
@@ -2909,13 +3439,6 @@ class Keeper:
         # Close document store (SQLite)
         if hasattr(self, '_document_store') and self._document_store is not None:
             self._document_store.close()
-
-        # Close embedding cache if it was loaded
-        if self._embedding_provider is not None:
-            if hasattr(self._embedding_provider, '_cache'):
-                cache = self._embedding_provider._cache
-                if hasattr(cache, 'close'):
-                    cache.close()
 
         # Close pending summary queue
         if hasattr(self, '_pending_queue'):

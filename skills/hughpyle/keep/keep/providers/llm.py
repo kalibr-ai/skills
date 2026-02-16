@@ -104,6 +104,24 @@ class AnthropicSummarization:
             return strip_summary_preamble(response.content[0].text)
         return truncated[:500]  # Fallback for empty response
 
+    def generate(
+        self,
+        system: str,
+        user: str,
+        *,
+        max_tokens: int = 4096,
+    ) -> str | None:
+        """Send a raw prompt to Anthropic and return generated text."""
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        if response.content:
+            return response.content[0].text
+        return None
+
 
 class OpenAISummarization:
     """
@@ -164,6 +182,27 @@ class OpenAISummarization:
 
         return strip_summary_preamble(response.choices[0].message.content.strip())
 
+    def generate(
+        self,
+        system: str,
+        user: str,
+        *,
+        max_tokens: int = 4096,
+    ) -> str | None:
+        """Send a raw prompt to OpenAI and return generated text."""
+        response = self._client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            max_tokens=max_tokens,
+            temperature=0.3,
+        )
+        if response.choices:
+            return response.choices[0].message.content
+        return None
+
 
 class OllamaSummarization:
     """
@@ -221,33 +260,55 @@ class OllamaSummarization:
 
         return strip_summary_preamble(response.json()["message"]["content"].strip())
 
+    def generate(
+        self,
+        system: str,
+        user: str,
+        *,
+        max_tokens: int = 4096,
+    ) -> str | None:
+        """Send a raw prompt to Ollama and return generated text."""
+        import requests
+
+        response = requests.post(
+            f"{self.base_url}/api/chat",
+            json={
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "stream": False,
+            },
+            timeout=300,
+        )
+        response.raise_for_status()
+        return response.json()["message"]["content"].strip()
+
 
 class GeminiSummarization:
     """
     Summarization provider using Google's Gemini API.
 
-    Requires: GEMINI_API_KEY or GOOGLE_API_KEY environment variable.
+    Authentication (checked in priority order):
+    1. api_key parameter (if provided, uses Google AI Studio)
+    2. GOOGLE_CLOUD_PROJECT env var (uses Vertex AI with ADC)
+    3. GEMINI_API_KEY or GOOGLE_API_KEY (uses Google AI Studio)
+
+    Default model is gemini-2.5-flash (cost-effective: ~$0.075/$0.30 per MTok).
     """
 
     def __init__(
         self,
-        model: str = "gemini-3-flash-preview",
+        model: str = "gemini-2.5-flash",
         api_key: str | None = None,
         max_tokens: int = 150,
     ):
-        try:
-            from google import genai
-        except ImportError:
-            raise RuntimeError("GeminiSummarization requires 'google-genai' library")
+        from .gemini_client import create_gemini_client
 
         self.model = model
         self.max_tokens = max_tokens
-
-        key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        if not key:
-            raise ValueError("Gemini API key required. Set GEMINI_API_KEY or GOOGLE_API_KEY")
-
-        self._client = genai.Client(api_key=key)
+        self._client = create_gemini_client(api_key)
 
     def summarize(
         self,
@@ -268,6 +329,21 @@ class GeminiSummarization:
             contents=prompt,
         )
         return strip_summary_preamble(response.text)
+
+    def generate(
+        self,
+        system: str,
+        user: str,
+        *,
+        max_tokens: int = 4096,
+    ) -> str | None:
+        """Send a raw prompt to Gemini and return generated text."""
+        full_prompt = f"{system}\n\n{user}"
+        response = self._client.models.generate_content(
+            model=self.model,
+            contents=full_prompt,
+        )
+        return response.text
 
 
 class PassthroughSummarization:
@@ -292,6 +368,16 @@ class PassthroughSummarization:
         if len(content) <= limit:
             return content
         return content[:limit].rsplit(" ", 1)[0] + "..."
+
+    def generate(
+        self,
+        system: str,
+        user: str,
+        *,
+        max_tokens: int = 4096,
+    ) -> str | None:
+        """Passthrough has no LLM — return None."""
+        return None
 
 
 # -----------------------------------------------------------------------------
@@ -484,6 +570,53 @@ class OllamaTagging:
             return {}
 
 
+class GeminiTagging:
+    """
+    Tagging provider using Google's Gemini API with JSON output.
+
+    Authentication (checked in priority order):
+    1. api_key parameter (if provided, uses Google AI Studio)
+    2. GOOGLE_CLOUD_PROJECT env var (uses Vertex AI with ADC)
+    3. GEMINI_API_KEY or GOOGLE_API_KEY (uses Google AI Studio)
+    """
+
+    SYSTEM_PROMPT = OpenAITagging.SYSTEM_PROMPT
+
+    def __init__(
+        self,
+        model: str = "gemini-2.5-flash",
+        api_key: str | None = None,
+    ):
+        from .gemini_client import create_gemini_client
+
+        self.model = model
+        self._client = create_gemini_client(api_key)
+
+    def tag(self, content: str) -> dict[str, str]:
+        """Generate tags using Google Gemini."""
+        truncated = content[:20000] if len(content) > 20000 else content
+
+        try:
+            full_prompt = f"{self.SYSTEM_PROMPT}\n\n{truncated}"
+            response = self._client.models.generate_content(
+                model=self.model,
+                contents=full_prompt,
+            )
+
+            # Parse JSON from response
+            text = response.text.strip()
+            # Strip markdown code fences if present
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+                if text.endswith("```"):
+                    text = text[:-3].strip()
+
+            tags = json.loads(text)
+            return {str(k): str(v) for k, v in tags.items()}
+        except (json.JSONDecodeError, Exception):
+            return {}
+
+
 class NoopTagging:
     """
     Tagging provider that returns empty tags.
@@ -570,5 +703,6 @@ _registry.register_summarization("passthrough", PassthroughSummarization)
 _registry.register_tagging("anthropic", AnthropicTagging)
 _registry.register_tagging("openai", OpenAITagging)
 _registry.register_tagging("ollama", OllamaTagging)
+_registry.register_tagging("gemini", GeminiTagging)
 _registry.register_tagging("noop", NoopTagging)
 _registry.register_media("ollama", OllamaMediaDescriber)

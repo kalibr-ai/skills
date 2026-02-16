@@ -1,6 +1,6 @@
 ---
 name: keep
-version: 0.38.4
+version: 0.43.5
 description: Reflective Memory
 homepage: https://github.com/hughpyle/keep
 runtime: python:3.12-slim
@@ -128,7 +128,7 @@ Moving clears matched versions from now, making room for what's next. Tag filter
 
 ## Layer 2: First Time Setup
 
-The store auto-initializes on first use. For provider configuration, see [docs/QUICKSTART.md](docs/QUICKSTART.md).
+The store auto-initializes on first use. For provider configuration, see [docs/QUICKSTART.md](docs/QUICKSTART.md). Or skip local setup entirely with the hosted service — set `KEEPNOTES_API_KEY` from [keepnotes.ai](https://keepnotes.ai).
 
 Now *store and read* the foundational teachings. These are seed wisdom, not test fixtures.
 

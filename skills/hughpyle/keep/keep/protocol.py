@@ -4,12 +4,12 @@ Protocol definitions for Keeper and its storage backends.
 Defines interface contracts at two levels:
 - KeeperProtocol: the public API (CLI, RemoteKeeper)
 - VectorStoreProtocol / DocumentStoreProtocol: internal storage backends
-  (ChromaDB/SQLite locally, Postgres/pgvector in cloud)
 """
 
 from typing import Any, Optional, Protocol, runtime_checkable
 
-from .document_store import DocumentRecord, VersionInfo
+from .document_store import DocumentRecord, PartInfo, VersionInfo
+from .pending_summaries import PendingSummary
 from .store import StoreResult
 from .types import Item
 
@@ -20,24 +20,17 @@ class KeeperProtocol(Protocol):
     The public interface for reflective memory operations.
 
     Implemented by:
-    - Keeper (local SQLite + ChromaDB backend)
-    - RemoteKeeper (HTTP client to keepnotes.ai API)
+    - Keeper (local backend)
+    - RemoteKeeper (hosted keepnotes.ai API)
     """
 
     # -- Write operations --
 
-    def update(
+    def put(
         self,
-        id: str,
-        tags: Optional[dict[str, str]] = None,
+        content: Optional[str] = None,
         *,
-        summary: Optional[str] = None,
-    ) -> Item: ...
-
-    def remember(
-        self,
-        content: str,
-        *,
+        uri: Optional[str] = None,
         id: Optional[str] = None,
         summary: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
@@ -69,7 +62,7 @@ class KeeperProtocol(Protocol):
         self,
         name: str,
         *,
-        source_id: str = ...,
+        source_id: str = "now",
         tags: Optional[dict[str, str]] = None,
         only_current: bool = False,
     ) -> Item: ...
@@ -78,19 +71,14 @@ class KeeperProtocol(Protocol):
 
     def find(
         self,
-        query: str,
+        query: Optional[str] = None,
         *,
-        limit: int = 10,
-        since: Optional[str] = None,
-    ) -> list[Item]: ...
-
-    def find_similar(
-        self,
-        id: str,
-        *,
+        similar_to: Optional[str] = None,
+        fulltext: bool = False,
         limit: int = 10,
         since: Optional[str] = None,
         include_self: bool = False,
+        include_hidden: bool = False,
     ) -> list[Item]: ...
 
     def get_similar_for_display(
@@ -100,14 +88,6 @@ class KeeperProtocol(Protocol):
         limit: int = 3,
     ) -> list[Item]: ...
 
-    def query_fulltext(
-        self,
-        query: str,
-        *,
-        limit: int = 10,
-        since: Optional[str] = None,
-    ) -> list[Item]: ...
-
     def query_tag(
         self,
         key: Optional[str] = None,
@@ -115,6 +95,7 @@ class KeeperProtocol(Protocol):
         *,
         limit: int = 100,
         since: Optional[str] = None,
+        include_hidden: bool = False,
     ) -> list[Item]: ...
 
     def list_tags(
@@ -129,6 +110,16 @@ class KeeperProtocol(Protocol):
         limit_per_doc: int = 3,
     ) -> dict[str, list[Item]]: ...
 
+    def resolve_inline_meta(
+        self,
+        item_id: str,
+        queries: list[dict[str, str]],
+        context_keys: list[str] | None = None,
+        prereq_keys: list[str] | None = None,
+        *,
+        limit: int = 3,
+    ) -> list[Item]: ...
+
     def list_recent(
         self,
         limit: int = 10,
@@ -136,6 +127,7 @@ class KeeperProtocol(Protocol):
         since: Optional[str] = None,
         order_by: str = "updated",
         include_history: bool = False,
+        include_hidden: bool = False,
     ) -> list[Item]: ...
 
     # -- Direct access --
@@ -186,9 +178,7 @@ class VectorStoreProtocol(Protocol):
     """
     Abstract vector search backend.
 
-    Implemented by:
-    - ChromaStore (local ChromaDB)
-    - Cloud implementations (pgvector, Qdrant, etc.)
+    Provides embedding storage, similarity search, and metadata queries.
     """
 
     # -- Embedding dimension --
@@ -218,6 +208,18 @@ class VectorStoreProtocol(Protocol):
         summary: str,
         tags: dict[str, str],
     ) -> None: ...
+
+    def upsert_part(
+        self,
+        collection: str,
+        id: str,
+        part_num: int,
+        embedding: list[float],
+        summary: str,
+        tags: dict[str, str],
+    ) -> None: ...
+
+    def delete_parts(self, collection: str, id: str) -> int: ...
 
     def get(self, collection: str, id: str) -> Optional[StoreResult]: ...
 
@@ -301,9 +303,7 @@ class DocumentStoreProtocol(Protocol):
     """
     Abstract document metadata backend.
 
-    Implemented by:
-    - DocumentStore (local SQLite)
-    - Cloud implementations (Postgres, etc.)
+    Provides document storage, versioning, and tag-based queries.
     """
 
     # -- Write --
@@ -345,6 +345,30 @@ class DocumentStoreProtocol(Protocol):
         self, collection: str, id: str, from_version: int
     ) -> int: ...
 
+    # -- Parts --
+
+    def upsert_parts(
+        self,
+        collection: str,
+        id: str,
+        parts: list[PartInfo],
+    ) -> int: ...
+
+    def get_part(
+        self,
+        collection: str,
+        id: str,
+        part_num: int,
+    ) -> Optional[PartInfo]: ...
+
+    def list_parts(
+        self, collection: str, id: str
+    ) -> list[PartInfo]: ...
+
+    def part_count(self, collection: str, id: str) -> int: ...
+
+    def delete_parts(self, collection: str, id: str) -> int: ...
+
     # -- Read --
 
     def get(self, collection: str, id: str) -> Optional[DocumentRecord]: ...
@@ -360,7 +384,7 @@ class DocumentStoreProtocol(Protocol):
     ) -> Optional[VersionInfo]: ...
 
     def list_versions(
-        self, collection: str, id: str, limit: Optional[int] = None
+        self, collection: str, id: str, limit: int = 10
     ) -> list[VersionInfo]: ...
 
     def get_version_nav(
@@ -431,15 +455,12 @@ class PendingQueueProtocol(Protocol):
     """
     Abstract pending summary queue.
 
-    Implemented by:
-    - PendingSummaryQueue (local SQLite)
-    - NullPendingQueue (no-op for backends that handle summarization server-side)
-    - Cloud implementations (Postgres-backed queue, etc.)
+    Manages background summarization of large content.
     """
 
     def enqueue(self, id: str, collection: str, content: str) -> None: ...
 
-    def dequeue(self, limit: int = 10) -> list: ...
+    def dequeue(self, limit: int = 10) -> list[PendingSummary]: ...
 
     def complete(self, id: str, collection: str) -> None: ...
 
@@ -448,5 +469,7 @@ class PendingQueueProtocol(Protocol):
     def stats(self) -> dict: ...
 
     def clear(self) -> int: ...
+
+    def get_status(self, id: str) -> dict | None: ...
 
     def close(self) -> None: ...

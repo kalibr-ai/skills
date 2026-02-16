@@ -74,10 +74,22 @@ def validate_id(id: str) -> None:
         raise ValueError(f"ID must be 1-{MAX_ID_LENGTH} characters")
 
 
+def casefold_tags(tags: dict[str, str]) -> dict[str, str]:
+    """Casefold tag keys and values for case-insensitive storage.
+
+    System tags (prefixed with '_') are left untouched.
+    """
+    return {
+        (k.casefold() if not k.startswith(SYSTEM_TAG_PREFIX) else k):
+        (v.casefold() if not k.startswith(SYSTEM_TAG_PREFIX) else v)
+        for k, v in tags.items()
+    }
+
+
 def filter_non_system_tags(tags: dict[str, str]) -> dict[str, str]:
     """
     Filter out any system tags (those starting with '_').
-    
+
     Use this to ensure source tags and derived tags cannot
     overwrite system-managed values.
     """
@@ -89,7 +101,7 @@ class Item:
     """
     An item retrieved from the reflective memory store.
     
-    This is a read-only snapshot. To modify an item, use api.update()
+    This is a read-only snapshot. To modify an item, use api.put()
     which returns a new Item with updated values.
     
     Timestamps and other system metadata live in tags, not as explicit fields.
@@ -115,6 +127,7 @@ class Item:
     summary: str
     tags: dict[str, str] = field(default_factory=dict)
     score: Optional[float] = None
+    changed: Optional[bool] = None  # True if content changed on put(), None for queries
     
     @property
     def created(self) -> str | None:

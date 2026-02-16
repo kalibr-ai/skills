@@ -20,7 +20,7 @@ import tomli_w
 
 CONFIG_FILENAME = "keep.toml"
 CONFIG_VERSION = 3  # Bumped for document versioning support
-SYSTEM_DOCS_VERSION = 9  # Increment when bundled system docs content changes
+SYSTEM_DOCS_VERSION = 10  # Increment when bundled system docs content changes
 
 
 def get_tool_directory() -> Path:
@@ -95,6 +95,7 @@ class RemoteConfig:
     """Configuration for remote keepnotes.ai backend."""
     api_url: str  # e.g., "https://api.keepnotes.ai"
     api_key: str  # e.g., "kn_live_..."
+    project: Optional[str] = None  # project slug for X-Project header
 
 
 @dataclass
@@ -135,7 +136,7 @@ class StoreConfig:
     # Remote backend (if set, Keeper delegates to keepnotes.ai API)
     remote: Optional[RemoteConfig] = None
 
-    # Pluggable backend ("local" = default SQLite+ChromaDB, or entry-point name)
+    # Pluggable backend ("local" = default, or entry-point name)
     backend: str = "local"
     backend_params: dict[str, Any] = field(default_factory=dict)
 
@@ -243,13 +244,13 @@ def detect_default_providers() -> dict[str, ProviderConfig | None]:
     Priority for embeddings:
     1. API keys: VOYAGE_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY
     2. Ollama (if running locally with models)
-    3. Local: MLX (Apple Silicon), sentence-transformers
+    3. Local models (if installed)
     4. None if nothing available
 
     Priority for summarization:
     1. API keys: ANTHROPIC_API_KEY (or CLAUDE_CODE_OAUTH_TOKEN), OPENAI_API_KEY, GEMINI_API_KEY
     2. Ollama (if running locally with a generative model)
-    3. Local: MLX (Apple Silicon)
+    3. Local models (if installed)
     4. Fallback: truncate (always available)
 
     Returns provider configs for: embedding, summarization, document.
@@ -274,7 +275,8 @@ def detect_default_providers() -> dict[str, ProviderConfig | None]:
     )
     has_gemini_key = bool(
         os.environ.get("GEMINI_API_KEY") or
-        os.environ.get("GOOGLE_API_KEY")
+        os.environ.get("GOOGLE_API_KEY") or
+        os.environ.get("GOOGLE_CLOUD_PROJECT")
     )
     has_voyage_key = bool(os.environ.get("VOYAGE_API_KEY"))
 
@@ -506,12 +508,15 @@ def load_config(config_dir: Path) -> StoreConfig:
     remote_data = data.get("remote", {})
     api_url = os.environ.get("KEEPNOTES_API_URL") or remote_data.get("api_url", "https://api.keepnotes.ai")
     api_key = os.environ.get("KEEPNOTES_API_KEY") or remote_data.get("api_key")
+    project = os.environ.get("KEEPNOTES_PROJECT") or remote_data.get("project")
     if api_url and api_key:
-        remote = RemoteConfig(api_url=api_url, api_key=api_key)
+        remote = RemoteConfig(api_url=api_url, api_key=api_key, project=project or None)
 
     # Parse pluggable backend config
     backend = data.get("store", {}).get("backend", "local")
     backend_params = data.get("store", {}).get("backend_params", {})
+    if backend_params and not isinstance(backend_params, dict):
+        raise ValueError("store.backend_params must be a table/dict")
 
     return StoreConfig(
         path=actual_store,
@@ -619,16 +624,19 @@ def save_config(config: StoreConfig) -> None:
     if config.remote and not (
         os.environ.get("KEEPNOTES_API_URL") or os.environ.get("KEEPNOTES_API_KEY")
     ):
-        data["remote"] = {
+        remote_data = {
             "api_url": config.remote.api_url,
             "api_key": config.remote.api_key,
         }
+        if config.remote.project:
+            remote_data["project"] = config.remote.project
+        data["remote"] = remote_data
 
     with open(config.config_path, "wb") as f:
         tomli_w.dump(data, f)
 
     # Restrict file permissions when config contains secrets
-    if config.remote:
+    if config.remote or config.backend_params:
         try:
             config.config_path.chmod(0o600)
         except OSError:

@@ -3,11 +3,16 @@
   "slug": "keep",
   "displayName": "Keep",
   "latest": {
-    "version": "0.38.4",
-    "publishedAt": 1771002962104,
-    "commit": "https://github.com/openclaw/skills/commit/a63590c8b867794f136067677e11f9a37fbf93c7"
+    "version": "0.43.5",
+    "publishedAt": 1771246153290,
+    "commit": null
   },
   "history": [
+    {
+      "version": "0.38.4",
+      "publishedAt": 1771002962104,
+      "commit": "https://github.com/openclaw/skills/commit/a63590c8b867794f136067677e11f9a37fbf93c7"
+    },
     {
       "version": "0.31.0",
       "publishedAt": 1770844254003,

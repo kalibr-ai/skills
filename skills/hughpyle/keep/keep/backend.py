@@ -2,8 +2,8 @@
 Pluggable storage backend factory.
 
 Creates storage backends (DocumentStore, VectorStore, PendingQueue) based on
-configuration. Local backends use SQLite + ChromaDB. External backends register
-via the ``keep.backends`` entry point group.
+configuration. External backends register via the ``keep.backends`` entry
+point group.
 
 External backend packages provide a factory function::
 
@@ -51,6 +51,9 @@ class NullPendingQueue:
     def clear(self) -> int:
         return 0
 
+    def get_status(self, id: str) -> dict | None:
+        return None
+
     def close(self) -> None:
         pass
 
@@ -59,9 +62,7 @@ def create_stores(config: StoreConfig) -> StoreBundle:
     """
     Create storage backends from configuration.
 
-    For ``backend = "local"`` (default), creates SQLite DocumentStore,
-    ChromaDB ChromaStore, and SQLite PendingSummaryQueue.
-
+    For ``backend = "local"`` (default), creates local storage backends.
     For other values, loads the backend via the ``keep.backends`` entry
     point group.
     """
@@ -78,13 +79,22 @@ def _create_local_stores(config: StoreConfig) -> StoreBundle:
 
     store_path = config.path
 
-    pending_queue = PendingSummaryQueue(store_path / "pending_summaries.db")
-    doc_store = DocumentStore(store_path / "documents.db")
+    pending_queue = None
+    doc_store = None
+    try:
+        pending_queue = PendingSummaryQueue(store_path / "pending_summaries.db")
+        doc_store = DocumentStore(store_path / "documents.db")
 
-    embedding_dim: Optional[int] = None
-    if config.embedding_identity:
-        embedding_dim = config.embedding_identity.dimension
-    vector_store = ChromaStore(store_path, embedding_dimension=embedding_dim)
+        embedding_dim: Optional[int] = None
+        if config.embedding_identity:
+            embedding_dim = config.embedding_identity.dimension
+        vector_store = ChromaStore(store_path, embedding_dimension=embedding_dim)
+    except Exception:
+        if pending_queue:
+            pending_queue.close()
+        if doc_store:
+            doc_store.close()
+        raise
 
     return StoreBundle(
         doc_store=doc_store,
@@ -102,7 +112,13 @@ def _load_backend(name: str, config: StoreConfig) -> StoreBundle:
     for ep in eps:
         if ep.name == name:
             factory = ep.load()
-            return factory(config)
+            bundle = factory(config)
+            if not isinstance(bundle, StoreBundle):
+                raise TypeError(
+                    f"Backend {name!r} factory returned {type(bundle).__name__}, "
+                    f"expected StoreBundle"
+                )
+            return bundle
 
     available = [ep.name for ep in eps]
     if available:
