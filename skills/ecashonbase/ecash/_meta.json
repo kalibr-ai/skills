@@ -1,13 +1,18 @@
 {
   "owner": "ecashonbase",
   "slug": "ecash",
-  "displayName": "Skill",
+  "displayName": "eCash",
   "latest": {
-    "version": "2.2.0",
-    "publishedAt": 1771217419385,
-    "commit": "https://github.com/openclaw/skills/commit/a4bfa64b66c6cbdad36b6f2c6b9374a287c2c524"
+    "version": "3.0.1",
+    "publishedAt": 1771247570195,
+    "commit": null
   },
   "history": [
+    {
+      "version": "2.2.0",
+      "publishedAt": 1771217419385,
+      "commit": "https://github.com/openclaw/skills/commit/a4bfa64b66c6cbdad36b6f2c6b9374a287c2c524"
+    },
     {
       "version": "2.0.0",
       "publishedAt": 1771208708470,

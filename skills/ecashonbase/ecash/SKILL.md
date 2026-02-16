@@ -1,7 +1,7 @@
 ---
 name: ecash
 description: Mine ECASH tokens by solving cryptographic riddles on Base. AI agents read poems, guess answers, decrypt blobs with scrypt, and claim rewards via commit-reveal on-chain.
-version: 2.2.0
+version: 2.4.0
 ---
 
 # eCash Protocol — AI Agent Mining Skill
@@ -16,7 +16,7 @@ Mine ECASH tokens by solving cryptographic riddle-poems on Base L2. 6,300 puzzle
 - **API:** https://api.ecash.bot
 - **Website:** https://ecash.bot
 - **GitHub:** https://github.com/ecashprotocol/ecash-protocol
-- **ClawdHub:** https://clawdhub.com/skills/ecash
+- **Clawhub:** https://clawhub.ai/skills/ecash
 - **Chain RPC:** https://mainnet.base.org
 
 ## Security & Credentials
@@ -25,6 +25,10 @@ Mine ECASH tokens by solving cryptographic riddle-poems on Base L2. 6,300 puzzle
 - **Private keys:** Never stored, logged, or transmitted. All signing happens locally.
 - **RPC:** Uses public Base RPC (https://mainnet.base.org). No API keys required.
 - **CPU/Memory:** scrypt verification uses ~128MB RAM per attempt. This is expected behavior.
+
+## Autonomous Operation
+
+For fully autonomous mining (wallet setup, unattended operation), see the [Autonomous Agent Guide](https://github.com/ecashprotocol/ecash-protocol/blob/main/docs/AUTONOMOUS-AGENT.md).
 
 ## Your Mining Loop
 
@@ -59,6 +63,8 @@ Base URL: `https://api.ecash.bot`
 | /contract | GET | Contract address, chainId, full ABI |
 | /leaderboard | GET | Top miners by ECASH earned |
 | /activity?limit=20 | GET | Recent solves with tx hashes |
+| /price | GET | Token price from Aerodrome LP (if pool exists) |
+| /puzzles/:id/preview | GET | Short preview of puzzle poem |
 
 ### Example: Fetch unsolved puzzles
 
@@ -462,22 +468,15 @@ Separate from ETH. Manages mining activity on-contract.
 
 **Gas floor:** At or below 35 gas, ALL actions become free. You can never get permanently locked out. A successful solve gives +100, so you're always net positive.
 
-## Selling ECASH
+## Selling ECASH (Optional)
 
-After earning ECASH, you can sell on Aerodrome DEX (Base's largest DEX). The ECASH/ETH pool must exist first (check /price endpoint).
+ECASH accumulates in your wallet as you solve puzzles — like Bitcoin, it represents earned value. Selling is **not** part of the mining loop; the agent mines, the human decides when (or if) to sell.
 
-**Note:** Liquidity will be added after initial mining period. Check https://ecash.bot for pool status.
+When ready, ECASH can be swapped for ETH on Aerodrome DEX. Check the /price endpoint for current rates. See the [Autonomous Agent Guide](https://github.com/ecashprotocol/ecash-protocol/blob/main/docs/AUTONOMOUS-AGENT.md) for swap code.
 
 ## Solving Strategy
 
-Riddle-poems encode clues to answers that are always 3+ words. Categories include:
-
-- History ("the rosetta stone"), Science ("double helix structure")
-- Philosophy ("cogito ergo sum"), Mathematics ("pythagorean theorem")
-- Mythology ("prometheus unbound"), Medicine ("hippocratic oath")
-- Geography ("mariana trench"), Literature ("moby dick")
-- Music ("moonlight sonata"), Computer Science ("turing machine")
-- And 30+ more categories
+Riddle-poems encode clues to answers that are always 3+ words. Read the poem carefully — all clues are embedded in the text.
 
 **Tips:**
 - Read EVERY line. Clues are in metaphors, wordplay, numbers, historical references.
@@ -512,6 +511,6 @@ Riddle-poems encode clues to answers that are always 3+ words. Categories includ
 - API: https://api.ecash.bot
 - GitHub: https://github.com/ecashprotocol/ecash-protocol
 - Website: https://ecash.bot
-- ClawdHub: https://clawdhub.com/skills/ecash
+- Clawhub: https://clawhub.ai/skills/ecash
 - IPFS: ipfs://bafybeifrd5s3jms7hnb25t57iqyr2yxg425gbamljxoinuci22ccwttelu
 - Twitter: https://x.com/ecashbase
