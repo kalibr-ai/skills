@@ -45,6 +45,8 @@ This shows all the user's Bring! lists. The user may have multiple lists, e.g.:
 - Baumarkt (hardware store)
 - A shared list with a partner/family
 
+**If the user has NO lists:** Tell them to create one in the Bring! app first. The API does not support creating or deleting lists — this must be done in the app. Once they've created a list, continue with setup.
+
 **Ask the user which list should be the default.** This lets them skip typing the list name every time.
 
 If they have only ONE list: set it as default automatically and inform them.
@@ -64,6 +66,10 @@ Show the user their current list content to confirm everything works:
 scripts/bring.sh show
 ```
 Tell them: "All set! You can now say things like 'Put milk on the list' or 'What's on the shopping list?'"
+
+### Important: Lists can only be managed in the app
+The Bring! API does not support creating or deleting lists. If the user asks to create a new list or delete one, tell them:
+"Lists can only be created and deleted in the Bring! app. Once you've made the change there, I can immediately work with the new list."
 
 ### Handling shared lists
 Bring! lists are often shared between family members or partners. Changes made by the agent sync instantly to all devices sharing that list. Inform the user:

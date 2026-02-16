@@ -3,11 +3,16 @@
   "slug": "bring-list",
   "displayName": "Bring! Shopping Lists",
   "latest": {
-    "version": "1.1.1",
-    "publishedAt": 1771244533977,
-    "commit": "https://github.com/openclaw/skills/commit/4e94f42b5c33720d5a48b9001107dc38d076d07e"
+    "version": "1.1.2",
+    "publishedAt": 1771244811002,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.1.1",
+      "publishedAt": 1771244533977,
+      "commit": "https://github.com/openclaw/skills/commit/4e94f42b5c33720d5a48b9001107dc38d076d07e"
+    },
     {
       "version": "1.0.0",
       "publishedAt": 1771242997885,

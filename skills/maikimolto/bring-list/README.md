@@ -108,6 +108,7 @@ Optional fields in `~/.config/bring/credentials.json`:
 
 - **Google/Apple SSO:** If you signed up for Bring! via Google or Apple, you may not have a direct password. You'll need to set one in the Bring! app (Settings → Account → Change Password) before using this skill.
 - **Unofficial API:** This skill uses the same REST API as the Bring! mobile app. It is not an official public API and could change without notice. The skill is tested and stable as of February 2026.
+- **Creating/deleting lists:** Not supported by the API. Create and delete lists in the Bring! app — the skill can immediately work with any list you create there.
 - **Shared lists:** Changes sync instantly to all phones/devices sharing the same list. Your partner will see items you add immediately.
 
 ## How It Works
