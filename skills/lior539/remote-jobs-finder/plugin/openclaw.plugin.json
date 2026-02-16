@@ -1,0 +1,6 @@
+{
+  "id": "remote-jobs-tools",
+  "name": "Remote Rocketship Tools",
+  "description": "Agent tools for Remote Rocketship API key management and job searches.",
+  "version": "1.0.0"
+}
