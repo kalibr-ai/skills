@@ -1,0 +1,13 @@
+# Linear Todos Cron Jobs
+# Add these to your crontab using: crontab -e
+
+SHELL=/bin/bash
+PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin
+
+# Morning TODO Digest (8:00 AM daily)
+# Sends a fun morning greeting with today's todos
+0 8 * * * cd /home/ec2-user/.openclaw/workspace/skills/linear-todos && uv run python main.py digest
+
+# Daily TODO Review (5:00 PM daily)
+# Shows full review of todos organized by urgency
+0 17 * * * cd /home/ec2-user/.openclaw/workspace/skills/linear-todos && uv run python main.py review
