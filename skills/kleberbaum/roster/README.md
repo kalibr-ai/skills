@@ -109,6 +109,39 @@ repo/
 | `get-employees.sh` | Load employee list | (none) |
 | `update-employees.sh` | Update employee list | `'<JSON>'` |
 
+## Security and Privacy
+
+### Token Scope
+
+This skill requires a GitHub Personal Access Token. For security, use a **fine-grained PAT** scoped to a single repository:
+
+| Permission | Level | Reason |
+|------------|-------|--------|
+| Contents | Read & Write | Push `employees.json` and roster JSON files |
+| Actions | Write | Trigger `build-roster.yml` and `publish-roster.yml` workflows |
+
+Do NOT use a classic PAT with broad `repo` scope. Limit the token lifetime and rotate it regularly.
+
+### Repository Privacy
+
+The target repository (`ROSTER_REPO`) **must be private**. It stores `employees.json` containing personal data:
+- Employee first names and email addresses
+- Minor status (`isMinor`)
+- Weekly hour limits and free-text notes
+- Weekly roster assignments
+
+### Workflow Review
+
+Before enabling this skill, inspect the GitHub Actions workflows in your target repository (`build-roster.yml`, `publish-roster.yml`). The skill dispatches these workflows, which run in the repo context and may access secrets. Ensure they only perform the intended actions (PDF generation, Telegram delivery, email sending).
+
+### Data Minimization
+
+The skill collects employee emails when new employees are detected in CSV uploads. Only store data necessary for the roster and PDF distribution workflow. Ensure compliance with applicable data protection regulations (e.g. GDPR).
+
+### Test First
+
+Before running against production data, test the skill with a throwaway private repository and dummy employee data to verify behavior and outputs.
+
 ## License
 
 MIT

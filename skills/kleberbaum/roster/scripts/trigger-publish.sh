@@ -26,11 +26,17 @@ if [ -z "$REPO" ]; then
   exit 1
 fi
 
+# Build dispatch payload safely via python3 json.dumps
+BODY=$(python3 -c "
+import json, sys
+print(json.dumps({'ref': 'main', 'inputs': {'file': sys.argv[1]}}))
+" "$FILE")
+
 RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
   -H "Authorization: token $GITHUB_TOKEN" \
   -H "Accept: application/vnd.github.v3+json" \
   "https://api.github.com/repos/$REPO/actions/workflows/publish-roster.yml/dispatches" \
-  -d "{\"ref\":\"main\",\"inputs\":{\"file\":\"$FILE\"}}")
+  -d "$BODY")
 
 if [ "$RESP" = "204" ]; then
   echo "SUCCESS: Publish workflow gestartet für $FILE"

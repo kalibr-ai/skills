@@ -14,7 +14,6 @@ if [ -z "$KW" ] || [ -z "$YEAR" ] || [ -z "$JSON_CONTENT" ]; then
   exit 1
 fi
 
-GITHUB_TOKEN="${GITHUB_TOKEN}"
 REPO="${ROSTER_REPO}"
 
 if [ -z "$REPO" ]; then
@@ -24,8 +23,8 @@ if [ -z "$REPO" ]; then
 fi
 FILE_PATH="KW-${YEAR}/KW-${KW}-${YEAR}.json"
 
-# Base64 encode the JSON content for the GitHub API
-CONTENT_B64=$(echo -n "$JSON_CONTENT" | base64 -w 0)
+# Base64 encode via stdin to avoid shell escaping issues
+CONTENT_B64=$(printf '%s' "$JSON_CONTENT" | base64 -w 0)
 
 # Check if file already exists (to get its SHA for updates)
 EXISTING_SHA=""
@@ -33,31 +32,23 @@ RESPONSE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
   -H "Accept: application/vnd.github.v3+json" \
   "https://api.github.com/repos/$REPO/contents/$FILE_PATH?ref=main" 2>/dev/null || echo "{}")
 
-if echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sha',''))" 2>/dev/null | grep -q .; then
-  EXISTING_SHA=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('sha',''))")
-fi
+EXISTING_SHA=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('sha',''))" 2>/dev/null || echo "")
 
-# Build the API payload
-if [ -n "$EXISTING_SHA" ] && [ "$EXISTING_SHA" != "" ]; then
-  PAYLOAD=$(python3 -c "
-import json
-print(json.dumps({
-    'message': 'feat: add Dienstplan KW-${KW}-${YEAR}',
-    'content': '$CONTENT_B64',
-    'sha': '$EXISTING_SHA',
+# Build the API payload safely via python3 with sys.argv (no shell interpolation)
+PAYLOAD=$(python3 -c "
+import json, sys
+msg = sys.argv[1]
+b64 = sys.argv[2]
+sha = sys.argv[3] if len(sys.argv) > 3 else ''
+payload = {
+    'message': msg,
+    'content': b64,
     'branch': 'main'
-}))
-")
-else
-  PAYLOAD=$(python3 -c "
-import json
-print(json.dumps({
-    'message': 'feat: add Dienstplan KW-${KW}-${YEAR}',
-    'content': '$CONTENT_B64',
-    'branch': 'main'
-}))
-")
-fi
+}
+if sha:
+    payload['sha'] = sha
+print(json.dumps(payload))
+" "feat: add Dienstplan KW-${KW}-${YEAR}" "$CONTENT_B64" "$EXISTING_SHA")
 
 # Push to GitHub
 RESULT=$(curl -s -X PUT \

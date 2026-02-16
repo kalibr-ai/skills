@@ -5,7 +5,6 @@
 
 set -e
 
-GITHUB_TOKEN="${GITHUB_TOKEN}"
 REPO="${ROSTER_REPO}"
 
 if [ -z "$REPO" ]; then
@@ -19,8 +18,8 @@ RESPONSE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
   -H "Accept: application/vnd.github.v3+json" \
   "https://api.github.com/repos/$REPO/contents/$FILE_PATH?ref=main" 2>/dev/null)
 
-# Decode content from base64
-echo "$RESPONSE" | python3 -c "
+# Decode content from base64 via stdin (no shell interpolation)
+printf '%s' "$RESPONSE" | python3 -c "
 import sys, json, base64
 data = json.load(sys.stdin)
 content = data.get('content', '')

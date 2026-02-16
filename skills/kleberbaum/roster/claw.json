@@ -1,6 +1,6 @@
 {
   "name": "roster",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Creates weekly shift rosters (KW-JSON) from CSV availability data and pushes them to GitHub. Optimized for field sales teams with driver logistics, trainer assignments, and automatic PDF generation.",
   "author": "netsnek",
   "license": "MIT",

@@ -2,6 +2,20 @@
 name: roster
 description: Creates weekly shift rosters (KW-JSON) from CSV availability data and pushes them to GitHub.
 user-invocable: true
+version: 1.0.3
+metadata:
+  openclaw:
+    requires:
+      env:
+        - GITHUB_TOKEN
+        - ROSTER_REPO
+      bins:
+        - curl
+        - python3
+        - base64
+    primaryEnv: GITHUB_TOKEN
+    os:
+      - linux
 ---
 
 # Roster Planner
@@ -639,6 +653,27 @@ When the user mentions in chat that an employee is now **trained**:
 6. Push to GitHub: `update-employees.sh '<FULL_EMPLOYEES_JSON>'`
 7. Confirm in chat
 
+## Privacy and Data Handling
+
+This skill processes and stores **personal data** (employee names, email addresses, minor status, work notes). Operators must be aware of the following:
+
+**Repository visibility:** The target GitHub repository (`ROSTER_REPO`) SHOULD be **private**. It will contain `employees.json` with employee PII and weekly roster files. A public repository would expose this data to anyone.
+
+**Data stored in the repository:**
+- `employees.json` -- employee first names, email addresses, minor status, weekly hour limits, free-text notes
+- `KW-XX-YYYY.json` -- weekly roster files with employee names and shift assignments
+
+**Credential scope:** Use a **fine-grained GitHub Personal Access Token** scoped to the single target repository with only the permissions needed:
+- `contents: write` (to push JSON files)
+- `actions: write` (to trigger workflows)
+Do NOT use a classic PAT with broad `repo` scope across all your repositories. Limit the token lifetime and rotate regularly.
+
+**GitHub Actions workflows:** This skill triggers `build-roster.yml` and `publish-roster.yml` workflows via `workflow_dispatch`. These workflows run in the context of the target repository and may access repo secrets. **Review all workflows in the target repository** before granting the token, as a misconfigured workflow could leak data or run unintended code.
+
+**GDPR / data compliance:** The operator is responsible for ensuring that storage and processing of employee data complies with applicable data protection regulations (e.g. GDPR). This includes informing employees about data processing, ensuring lawful basis, and implementing appropriate retention policies.
+
+**Data minimization:** The skill asks for employee email addresses when new employees are detected in CSV uploads. Only collect data that is necessary for the roster and PDF distribution workflow.
+
 ## Guardrails
 
 - NEVER generate shifts for employees who are not available that day
@@ -655,6 +690,7 @@ When the user mentions in chat that an employee is now **trained**:
 - If an employee is only available AFTER shift start -> DO NOT schedule (misses departure)
 - If an employee has a hard end BEFORE shift end -> DO NOT schedule
 - **Car capacity: max. 5 people** per car (including driver)
+- **Supervisor group FIRST:** The group containing the supervisor (status: "supervisor") MUST ALWAYS be the first group (Group A) in the `groups` array. This ensures the supervisor leads the first team in the PDF.
 - **Trainer priority is STRICT:** ALWAYS use `trainerPriority[0]` when available! NEVER choose a lower-priority trainer!
 - **Calculate start times** from CSV availability, do NOT default to 15:30!
 - **Step 3b (validation) is MANDATORY** -- run all checks before every preview!

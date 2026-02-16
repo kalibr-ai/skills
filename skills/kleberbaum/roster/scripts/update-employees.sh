@@ -12,7 +12,6 @@ if [ -z "$JSON_CONTENT" ]; then
   exit 1
 fi
 
-GITHUB_TOKEN="${GITHUB_TOKEN}"
 REPO="${ROSTER_REPO}"
 
 if [ -z "$REPO" ]; then
@@ -22,8 +21,8 @@ if [ -z "$REPO" ]; then
 fi
 FILE_PATH="employees.json"
 
-# Base64 encode the JSON content
-CONTENT_B64=$(echo -n "$JSON_CONTENT" | base64 -w 0)
+# Base64 encode via printf to avoid shell escaping issues
+CONTENT_B64=$(printf '%s' "$JSON_CONTENT" | base64 -w 0)
 
 # Get current file SHA (required for update)
 RESPONSE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
@@ -37,7 +36,7 @@ if [ -z "$EXISTING_SHA" ]; then
   exit 1
 fi
 
-# Build payload
+# Build payload safely via python3 with sys.argv (no shell interpolation in JSON)
 PAYLOAD=$(python3 -c "
 import json, sys
 sha = sys.argv[1]

@@ -29,18 +29,30 @@ if [ -z "$REPO" ]; then
   exit 1
 fi
 
-# Build inputs JSON
+# Validate CHAT_ID is numeric if provided (Telegram chat IDs are integers)
 if [ -n "$CHAT_ID" ]; then
-  INPUTS="{\"file\":\"$FILE\",\"telegram_chat_id\":\"$CHAT_ID\"}"
-else
-  INPUTS="{\"file\":\"$FILE\"}"
+  if ! echo "$CHAT_ID" | grep -qE '^-?[0-9]+$'; then
+    echo "ERROR: CHAT_ID must be a numeric value, got: $CHAT_ID"
+    exit 1
+  fi
 fi
+
+# Build dispatch payload safely via python3 json.dumps
+BODY=$(python3 -c "
+import json, sys
+file_path = sys.argv[1]
+chat_id = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else ''
+inputs = {'file': file_path}
+if chat_id:
+    inputs['telegram_chat_id'] = chat_id
+print(json.dumps({'ref': 'main', 'inputs': inputs}))
+" "$FILE" "$CHAT_ID")
 
 RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
   -H "Authorization: token $GITHUB_TOKEN" \
   -H "Accept: application/vnd.github.v3+json" \
   "https://api.github.com/repos/$REPO/actions/workflows/build-roster.yml/dispatches" \
-  -d "{\"ref\":\"main\",\"inputs\":$INPUTS}")
+  -d "$BODY")
 
 if [ "$RESP" = "204" ]; then
   echo "SUCCESS: Build workflow gestartet für $FILE"
