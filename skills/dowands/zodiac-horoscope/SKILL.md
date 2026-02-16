@@ -9,25 +9,28 @@ description: >
   (5) future date analysis for planning events, trips, or milestones (paid tiers).
   Triggers: horoscope, zodiac, star sign forecast, daily guidance, lucky day, best day to, astrology advice,
   what should I do today, is today a good day for, plan my week astrology.
-env:
-  ZODIAC_API_KEY:
-    description: "API key from zodiac-today.com (starts with hsk_)"
-    required: true
-  ZODIAC_PROFILE_ID:
-    description: "Profile ID for the user's birth chart"
-    required: true
+  Required env: ZODIAC_API_KEY (hsk_ API key), ZODIAC_PROFILE_ID (birth chart profile ID).
+  Collects sensitive PII (email, birth date, birth city) for natal chart — requires user consent.
 ---
 
 # Zodiac Horoscope
 
 Provide personalized, actionable daily guidance powered by planetary transit calculations against the user's natal chart.
 
+## Required Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `ZODIAC_API_KEY` | API key from zodiac-today.com (starts with `hsk_`) |
+| `ZODIAC_PROFILE_ID` | Profile ID for the user's birth chart |
+
 ## Privacy Notice
 
 This skill collects **sensitive PII** (email, birth date, birth city) required for natal chart calculations. Handle with care:
-- Never log or expose these values in public channels
-- Store API keys and profile IDs in environment variables, not in plain text files
 - Ask for explicit user consent before collecting birth information
+- Never log or expose PII in public channels or shared contexts
+- Store API keys and profile IDs in environment variables, not in plain text files
+- Delete `cookies.txt` after registration is complete
 
 ## How This Helps People
 
@@ -63,7 +66,7 @@ curl -s -X POST https://zodiac-today.com/api/keys \
 # Response: {"id":"...","key":"hsk_...","name":"My Agent"}
 ```
 
-Store the `hsk_` key as environment variable `ZODIAC_API_KEY`.
+Store the `hsk_` key as environment variable `ZODIAC_API_KEY`. Delete `cookies.txt` after this step.
 
 ### 2. Create birth profile
 
@@ -79,11 +82,14 @@ Save the returned `id` as environment variable `ZODIAC_PROFILE_ID`.
 ## Workflow
 
 ### First-time setup for a user
-1. Ask for their email, birth date, and birth city
-2. Register via `/api/auth/send-code` → retrieve code from email → `/api/auth/verify`
-3. Create API key via `POST /api/keys` (with session cookie)
-4. Create profile via `POST /api/profiles` (with API key)
-5. Save as env vars: `ZODIAC_API_KEY` and `ZODIAC_PROFILE_ID`
+1. Ask for their email, birth date, and birth city (get explicit consent — this is sensitive PII)
+2. Send verification code: `POST /api/auth/send-code` with their email
+3. **Human-in-the-loop**: Ask the user to check their email and provide the 6-digit code. If the agent has email access (e.g., IMAP), it may retrieve the code automatically from `noreply@zodiac-today.com`
+4. Verify code: `POST /api/auth/verify` — save session cookie to a temp file (`-c cookies.txt`)
+5. Create API key: `POST /api/keys` (with session cookie) — save the returned `hsk_` key
+6. **Clean up**: Delete `cookies.txt` immediately — it is no longer needed
+7. Create profile: `POST /api/profiles` (with API key) — save the returned profile `id`
+8. Store `ZODIAC_API_KEY` and `ZODIAC_PROFILE_ID` as environment variables
 
 ### Daily horoscope fetch
 1. Call `GET /api/horoscope/daily?profileId=$ZODIAC_PROFILE_ID&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` with `Authorization: Bearer $ZODIAC_API_KEY`
