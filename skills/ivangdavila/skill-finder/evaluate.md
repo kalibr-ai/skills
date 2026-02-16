@@ -4,21 +4,15 @@ Reference — load when evaluating skill quality.
 
 ## Quick Assessment (from search results)
 
-Before installing, check:
+Before recommending, check:
 - **Description clarity** — Does it explain WHAT and WHEN?
 - **Author reputation** — Known? Multiple skills?
 - **Download count** — Popular skills are often better maintained
 - **Last update** — Recent = active maintenance
 
-## Deep Assessment (after installing)
+## Structure Quality (from ClawHub page)
 
-Install to temp folder, then check:
-
-```bash
-npx clawhub install <slug> --dir /tmp/eval
-```
-
-### Structure Quality
+View skill on ClawHub to check structure:
 
 ✅ Good signs:
 - SKILL.md under 80 lines
@@ -32,7 +26,7 @@ npx clawhub install <slug> --dir /tmp/eval
 - Explains obvious concepts
 - README, CHANGELOG clutter
 
-### Instruction Quality
+## Instruction Quality
 
 ✅ Good signs:
 - Imperative voice ("Do X")
@@ -46,7 +40,7 @@ npx clawhub install <slug> --dir /tmp/eval
 - Vague guidance
 - Over-explanation
 
-### Fit Assessment
+## Fit Assessment
 
 Ask:
 - Does it solve the ACTUAL need?

@@ -1,64 +1,81 @@
 ---
 name: "Skill Finder"
 description: "Find the right skill for any need. Search, evaluate, and compare skills intelligently."
+version: "1.0.3"
+changelog: "Fix inconsistency: remove /tmp install instruction that contradicted scope"
 ---
 
 ## Find the Right Skill
 
-Don't just search by name — search by need. Evaluate quality before recommending.
-
-**Complements:**
-- `skill-manager` — manages installed, suggests proactively
-- `skill-builder` — creates new skills
-- `skill-finder` — finds existing skills when user asks
+Search by need, not just name. Evaluate quality before recommending.
 
 **References:**
-- `search.md` — Search strategies and commands
-- `evaluate.md` — Quality evaluation criteria
-- `criteria.md` — How to learn user preferences
+- `search.md` — search strategies and commands
+- `evaluate.md` — quality evaluation criteria
+- `criteria.md` — when to update preference memory
+
+**Related skills:**
+- `skill-manager` — manages installed, suggests proactively
+- `skill-builder` — creates new skills
 
 ---
 
-### When to Use
+## Scope
 
-User explicitly wants to find a skill:
+This skill ONLY:
+- Searches ClawHub via `npx clawhub search` command
+- Evaluates skills from search results
+- Stores user preferences in `~/skill-finder/memory.md`
+
+This skill NEVER:
+- Reads files outside `~/skill-finder/`
+- Observes or infers preferences from user behavior
+- Installs skills automatically
+
+---
+
+## When to Use
+
+User explicitly asks to find a skill:
 - "Is there a skill for X?"
 - "Find me something that does Y"
 - "What skills exist for Z?"
 
-### Search → Evaluate → Recommend
+## Workflow
 
-1. **Search** by need, not just keywords
-2. **Evaluate** quality using `evaluate.md` criteria
-3. **Compare** if multiple options exist
-4. **Recommend** with reasoning
-
-### Quality Signals
-
-Quick evaluation before recommending:
-- **Structure** — Short SKILL.md? Progressive disclosure?
-- **Clarity** — Clear triggers in description?
-- **Maintenance** — Recent updates? Active author?
-- **Fit** — Matches user's actual need?
-
-### Learning User Preferences
-
-Track in sections below:
-- What quality matters to them
-- Skills they liked/disliked
-- Domains they work in
+1. **Search** — `npx clawhub search "query"`
+2. **Evaluate** — Apply criteria from `evaluate.md`
+3. **Compare** — If multiple match, rank by fit
+4. **Recommend** — Present top 1-3 with reasoning
 
 ---
 
-### Preferences
-<!-- What user values in skills -->
+## Data Storage
 
-### Liked
-<!-- Skills they installed and kept -->
+Preferences stored in `~/skill-finder/memory.md`.
 
-### Passed
-<!-- Skills they saw but declined (with reason) -->
+**First use:** Create folder with `mkdir -p ~/skill-finder`
 
----
+**What is stored (ONLY from explicit user statements):**
+- Preferences user explicitly stated ("I prefer X")
+- Skills user said they liked with reason
+- Skills user declined with stated reason
 
-*Search command: `npx clawhub search <query>`*
+**What is NEVER stored:**
+- Inferred preferences from behavior
+- Installation history without user comment
+- Any data from outside this skill's scope
+
+**Format:**
+```markdown
+## Preferences
+- "value" — user's exact words
+
+## Liked
+- slug — "reason user gave"
+
+## Passed
+- slug — "reason user gave"
+```
+
+**Limit:** ≤50 lines. Archive old entries when exceeded.
