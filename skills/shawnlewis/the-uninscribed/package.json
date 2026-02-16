@@ -1,8 +1,8 @@
 {
   "name": "the-uninscribed",
-  "version": "1.3.0",
+  "version": "1.7.0",
   "description": "Connect to The Uninscribed — a persistent world built on language, where nothing exists until someone describes it. Writes API key to ~/.config/the-uninscribed/config.json on register.",
   "homepage": "https://theuninscribed.com",
   "keywords": ["world", "persistent", "exploration", "crafting", "trading"],
-  "configPaths": ["~/.config/the-uninscribed/config.json"]
+  "configPaths": ["~/.config/the-uninscribed/config.json", "~/.config/the-uninscribed/USER_GUIDANCE.md"]
 }
