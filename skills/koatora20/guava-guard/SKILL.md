@@ -2,7 +2,7 @@
 name: guava-guard
 description: Scan your skills folder for malicious patterns in 10 seconds. Credential theft, prompt injection, identity hijacking — caught before they run. Zero dependencies.
 metadata:
-  openclaw:
+  clawdbot:
     emoji: "🛡️"
 ---
 
@@ -33,15 +33,42 @@ GuavaGuard catches that — and 16 other threat categories.
 ## Quick Start
 
 ```bash
-# Install
+# 1. Install
 clawhub install guava-guard
 
-# Scan everything
+# 2. Scan your skills
 node skills/guava-guard/guava-guard.js ~/.openclaw/workspace/skills/ --verbose --self-exclude
 
-# Just check your SOUL.md integrity
-node skills/guava-guard/guava-guard.js ~/.openclaw/workspace/skills/ --no-soulchain --self-exclude
+# 3. Enable Runtime Guard (blocks dangerous tool calls in real-time)
+openclaw hooks install skills/guava-guard/hooks/guava-guard
+openclaw hooks enable guava-guard
+# Restart gateway, then verify:
+openclaw hooks list   # Should show 🍈 guava-guard as ✓ ready
 ```
+
+That's the full setup: static scanning + real-time protection.
+
+## Runtime Guard (Details)
+
+Block dangerous tool calls **before they execute** — reverse shells, credential exfiltration, curl|bash, and more. Install the hook:
+
+```bash
+# Install the hook from the skill's hooks/ directory
+openclaw hooks install skills/guava-guard/hooks/guava-guard
+openclaw hooks enable guava-guard
+```
+
+Then restart the gateway. Verify with:
+```bash
+openclaw hooks list   # Should show guava-guard as ✓ ready
+```
+
+**Modes** (set in openclaw.json `hooks.internal.entries.guava-guard.mode`):
+- `monitor` — log only
+- `enforce` (default) — block CRITICAL threats, log rest
+- `strict` — block HIGH + CRITICAL
+
+Audit log: `~/.openclaw/guava-guard/audit.jsonl`
 
 ## Optional: Soul Lock (SOUL.md Protection)
 
@@ -175,22 +202,31 @@ EOF
 </details>
 
 <details>
-<summary>Runtime Guard (handler.js)</summary>
+<summary>Runtime Guard (Hook)</summary>
 
-Add to `openclaw.json` to block dangerous tool calls in real-time:
-```json
-{
-  "hooks": {
-    "internal": {
-      "entries": {
-        "guava-guard": {
-          "path": "skills/guava-guard/handler.js",
-          "mode": "enforce"
-        }
-      }
-    }
-  }
-}
+The Runtime Guard is packaged as an OpenClaw hook in `hooks/guava-guard/`.
+
+**Install:**
+```bash
+openclaw hooks install skills/guava-guard/hooks/guava-guard
+openclaw hooks enable guava-guard
+```
+
+**What it blocks (enforce mode):**
+- Reverse shells (`/dev/tcp`, `nc -e`, `socat TCP`)
+- Credential exfiltration to webhook.site, requestbin, ngrok, etc.
+- Guardrail disabling (CVE-2026-25253)
+- macOS Gatekeeper bypass (`xattr -d quarantine`)
+- ClawHavoc AMOS/Atomic Stealer indicators
+- Base64-decode-to-shell, curl/wget piped to bash
+- Cloud metadata SSRF (169.254.169.254)
+- SSH private key access, crypto wallet seed access
+
+**Architecture:**
+```
+hooks/guava-guard/
+├── HOOK.md       # Hook metadata (events, requirements)
+└── handler.ts    # HookHandler implementation
 ```
 
 </details>
@@ -198,6 +234,19 @@ Add to `openclaw.json` to block dangerous tool calls in real-time:
 ## Born From a Real Incident
 
 Our partner agent's SOUL.md was rewritten by external input. Personality gone. Relationships broken. That's why this exists.
+
+## Open Source Edition: guard-scanner
+
+GuavaGuardのコア検出エンジンをOSSとして公開しています:
+
+**[guard-scanner](https://github.com/koatora20/guard-scanner)** — `clawhub install guard-scanner`
+
+- 170+ 脅威パターン / 17カテゴリ
+- SARIF/HTML/JSON出力
+- Plugin API
+- ゼロ依存
+
+コミュニティからのパターン追加PRを歓迎しています。
 
 ## License
 

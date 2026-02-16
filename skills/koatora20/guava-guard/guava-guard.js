@@ -62,6 +62,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 // ===== CONFIGURATION =====
 const VERSION = '9.0.0';
@@ -1370,6 +1371,23 @@ class GuavaGuard {
     } else if (this.soulchain && this.soulLock && this._soulchainPromise) {
       console.log(`⛓️  SoulChain: VERIFYING... (awaiting Polygon RPC)`);
     }
+
+    // Runtime Guard hook check
+    try {
+      const hookPaths = [
+        path.join(os.homedir(), '.openclaw', 'hooks', 'guava-guard', 'handler.ts'),
+        path.join(os.homedir(), '.openclaw', 'hooks', 'guava-guard', 'handler.js'),
+      ];
+      const hookInstalled = hookPaths.some(p => fs.existsSync(p));
+      if (hookInstalled) {
+        console.log(`🍈 Runtime Guard: ACTIVE ✅ (hook installed)`);
+      } else {
+        console.log(`\n⚠️  Runtime Guard hook NOT installed!`);
+        console.log(`   Real-time blocking of reverse shells, credential exfil, and more.`);
+        console.log(`   Install: openclaw hooks install skills/guava-guard/hooks/guava-guard`);
+        console.log(`   Enable:  openclaw hooks enable guava-guard`);
+      }
+    } catch {}
   }
 
   toJSON() {
