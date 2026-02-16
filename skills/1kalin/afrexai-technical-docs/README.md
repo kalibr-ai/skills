@@ -1,6 +1,6 @@
 # Technical Documentation Engine
 
-Complete documentation system for development teams — from READMEs to ADRs, API refs, runbooks, changelogs, and docs-as-code pipelines.
+Complete technical documentation system for AI agents — from audit through maintenance. Build docs that developers actually read.
 
 ## Install
 
@@ -8,54 +8,63 @@ Complete documentation system for development teams — from READMEs to ADRs, AP
 clawhub install afrexai-technical-docs
 ```
 
-## What You Get
+## What It Does
 
-- **Doc Health Scorecard** — audit existing docs across 6 dimensions (0-30 scale)
-- **7 Complete Templates** — README, ADR, API Reference, Runbook, Changelog, How-To Guide, Developer Onboarding
-- **Writing Rules** — 7 laws of technical writing + anti-patterns checklist
-- **Docs-as-Code Pipeline** — file structure, CI automation, review checklists
-- **Maintenance System** — quarterly review process, freshness tracking, debt tracker
-- **Special Types** — RFC/Design docs, incident reports/post-mortems
+- **Audit** existing docs with a structured scorecard (0-30 grading)
+- **Generate** any doc type: READMEs, API refs, architecture docs, runbooks, ADRs, migration guides, error catalogs, changelogs, contributing guides
+- **Score** documentation quality with a 100-point rubric across 8 dimensions
+- **Maintain** docs with freshness tracking, debt management, and deprecation processes
+- **Automate** with docs-as-code pipeline setup (lint, link check, coverage, preview)
 
 ## Quick Start
 
-Ask your agent:
-- "Audit the docs for my project"
-- "Write a README for [project name]"
-- "Create an ADR for choosing PostgreSQL over MongoDB"
-- "Document this API endpoint: POST /api/orders"
-- "Write a runbook for database failover"
-- "Set up onboarding docs for new developers"
+Tell your agent:
 
-## Why This Over Alternatives
+```
+Audit the docs for my project
+```
 
-| Feature | Generic docs skill | This |
-|---------|-------------------|------|
-| Templates | Basic structure tips | 7 complete, copy-paste-ready templates |
-| API docs | "Document your API" | Full request/response/error/rate-limit format |
-| Runbooks | Not covered | Copy-pasteable commands with expected output |
-| ADRs | Not covered | Decision records with alternatives + review dates |
-| Maintenance | "Keep docs updated" | Quarterly checklist + freshness tracking system |
-| Onboarding | Not covered | Day-by-day new developer ramp plan |
-| Writing quality | General tips | 7 laws + anti-pattern detection + style guide |
+You'll get a scorecard showing gaps, a priority list, and effort estimates.
+
+Then:
+
+```
+Write a README for [project]
+Write a getting started guide for [feature]
+Document this API endpoint: POST /users
+Create a runbook for database failover
+```
+
+Every output follows battle-tested templates with examples and expected output.
+
+## What's Inside
+
+- 7 complete document templates (README, Getting Started, API Reference, Architecture, Runbook, Contributing, Changelog)
+- 100-point quality scoring rubric
+- Information architecture blueprint for developer portals
+- Docs-as-code automation pipeline
+- Migration guide and error catalog templates
+- ADR (Architecture Decision Record) format
+- Freshness tracking and documentation debt management
+- Writing style guide with the 4C test
 
 ## ⚡ Level Up
 
-Need documentation frameworks tailored to your industry? Check out our context packs:
+Want industry-specific documentation frameworks? Our **Context Packs** ($47) include tailored documentation patterns for your vertical:
 
-- **[SaaS Context Pack](https://afrexai-cto.github.io/context-packs/)** — API docs, developer portals, integration guides
-- **[Healthcare Context Pack](https://afrexai-cto.github.io/context-packs/)** — Compliance documentation, clinical workflows
-- **[Fintech Context Pack](https://afrexai-cto.github.io/context-packs/)** — Regulatory docs, audit trails, security documentation
+- **SaaS Pack** — API docs, SDK guides, developer portal architecture
+- **Healthcare Pack** — HIPAA-compliant documentation, clinical workflow guides
+- **Fintech Pack** — Regulatory documentation, audit trail templates
+- **Manufacturing Pack** — SOP documentation, quality management systems
 
-Each pack includes industry-specific documentation templates, compliance checklists, and domain expertise — $47.
+👉 [Browse all 10 vertical packs](https://afrexai-cto.github.io/context-packs/)
 
 ## 🔗 More Free Skills by AfrexAI
 
 - [afrexai-code-reviewer](https://clawhub.com/skills/afrexai-code-reviewer) — SPEAR code review framework
-- [afrexai-api-architect](https://clawhub.com/skills/afrexai-api-architect) — Complete API lifecycle
-- [afrexai-project-manager](https://clawhub.com/skills/afrexai-project-manager) — PM delivery system
-- [afrexai-seo-content-engine](https://clawhub.com/skills/afrexai-seo-content-engine) — Content that ranks
-- [afrexai-business-automation](https://clawhub.com/skills/afrexai-business-automation) — Workflow automation
+- [afrexai-api-architect](https://clawhub.com/skills/afrexai-api-architect) — Complete API design lifecycle
+- [afrexai-seo-content-engine](https://clawhub.com/skills/afrexai-seo-content-engine) — SEO content system
+- [afrexai-project-manager](https://clawhub.com/skills/afrexai-project-manager) — Full PM delivery system
+- [afrexai-prd-engine](https://clawhub.com/skills/afrexai-prd-engine) — PRD creation and management
 
-**Browse all AfrexAI skills →** [clawhub.com](https://clawhub.com)
-**Full storefront →** [afrexai-cto.github.io/context-packs](https://afrexai-cto.github.io/context-packs/)
+🖤💛 Built by [AfrexAI](https://afrexai-cto.github.io/context-packs/)
