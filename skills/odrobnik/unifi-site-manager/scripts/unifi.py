@@ -171,19 +171,27 @@ def _get_local_session(gateway_ip: str) -> Tuple[requests.Session, str]:
     fingerprint = _local_gateway_fingerprint()
 
     if _local_session is None:
+        if not fingerprint:
+            print(
+                "Error: No gateway_fingerprint configured. Local HTTPS requires certificate pinning.\n"
+                "Without a pinned fingerprint, connections are vulnerable to MITM attacks.\n"
+                "See SETUP.md for instructions on obtaining and configuring the gateway fingerprint.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
         _local_session = requests.Session()
-        if fingerprint:
-            from requests.adapters import HTTPAdapter
+        from requests.adapters import HTTPAdapter
 
-            class _FingerprintAdapter(HTTPAdapter):
-                def init_poolmanager(self, *args, **kwargs):
-                    kwargs["assert_fingerprint"] = fingerprint
-                    super().init_poolmanager(*args, **kwargs)
+        class _FingerprintAdapter(HTTPAdapter):
+            def init_poolmanager(self, *args, **kwargs):
+                kwargs["assert_fingerprint"] = fingerprint
+                super().init_poolmanager(*args, **kwargs)
 
-            _local_session.mount("https://", _FingerprintAdapter())
-            _local_session.verify = False  # fingerprint replaces CA verification
-        else:
-            _local_session.verify = False  # no fingerprint — unverified HTTPS
+        _local_session.mount("https://", _FingerprintAdapter())
+        # CA verification is replaced by fingerprint assertion at the TLS level;
+        # disable the default CA check to avoid rejecting self-signed certs.
+        _local_session.verify = False
 
     return _local_session, base
 
@@ -256,6 +264,10 @@ def _is_local_reachable() -> bool:
         return _is_local_reachable._cached
     gateway_ip, local_api_key = _resolve_local_gateway()
     if not gateway_ip or not local_api_key:
+        _is_local_reachable._cached = False
+        return False
+    if not _local_gateway_fingerprint():
+        # No fingerprint configured — can't connect securely
         _is_local_reachable._cached = False
         return False
     try:
