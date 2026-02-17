@@ -1,3 +1,27 @@
+---
+name: ezyhost
+description: Deploy, manage, and monitor static websites via the EzyHost API. Upload files, build with AI, track analytics, and manage custom domains.
+homepage: https://ezyhost.io
+metadata:
+  openclaw:
+    emoji: "🚀"
+    requires:
+      env:
+        - EZYHOST_API_KEY
+    primaryEnv: EZYHOST_API_KEY
+    permissions:
+      version: 1
+      declared_purpose: "Deploy and manage static websites on EzyHost. Upload files, run SEO analysis, track analytics, generate sites with AI, and configure custom domains."
+      network:
+        - "ezyhost.io"
+      env:
+        - "EZYHOST_API_KEY"
+      filesystem: []
+      exec: []
+      sensitive_data:
+        credentials: false
+---
+
 # EzyHost — Agent Skill
 
 > This document describes how AI agents can interact with EzyHost programmatically.
@@ -14,10 +38,10 @@ https://ezyhost.io/api
 All API requests require an API key passed as a header:
 
 ```
-x-api-key: YOUR_API_KEY
+x-api-key: $EZYHOST_API_KEY
 ```
 
-Generate your API key at `https://ezyhost.io/dashboard/api-keys`.
+The key is loaded from the `EZYHOST_API_KEY` environment variable. Generate your API key at `https://ezyhost.io/dashboard/api-keys`.
 
 **Note:** API access requires the Solo plan or higher.
 
@@ -78,15 +102,7 @@ Supports `.zip` archives (auto-extracted) and individual files. All uploaded fil
 
 **Supported file types:** HTML, CSS, JS, JSON, XML, SVG, images (PNG, JPG, GIF, WebP, AVIF, ICO), PDFs, presentations (PPTX), documents (DOCX, XLSX), audio (MP3, WAV, OGG, FLAC, AAC), video (MP4, WebM, MOV), fonts (WOFF, WOFF2, TTF, OTF, EOT), archives (ZIP), 3D models (GLB, GLTF, OBJ), and any other static asset.
 
-**Blocked file types:** Executables (.exe, .dll, .bat, .sh, .php, .asp, .jar) are rejected.
-
-#### Get Presigned Upload URL
-```
-POST /api/upload/:projectId/presign
-Content-Type: application/json
-Body: { "filename": "video.mp4", "contentType": "video/mp4" }
-```
-Returns `{ uploadUrl, s3Key }` — use for large file direct-to-S3 uploads.
+**Blocked file types:** Executables (.exe, .dll, .bat, .sh, .php, .asp, .jar) and SVGs containing scripts or event handlers are rejected.
 
 #### Delete a File
 ```
@@ -196,7 +212,7 @@ Returns **SSE stream** with events:
 - `done` — `{ files: [{ filename, content }] }` — the generated files
 - `error` — `{ message }` on failure
 
-Counts against per-plan AI generation limits.
+Counts against per-plan AI generation limits. Only one AI generation can run at a time per user.
 
 #### Deploy AI-Generated Files
 ```
@@ -233,13 +249,13 @@ Template body: `{ "name": "My Template", "description": "...", "messages": [...]
 ```
 GET /api/apikey
 ```
-Returns `{ hasKey: true/false, apiKey: "ezy_****..." }` — key is partially masked.
+Returns `{ hasKey: true/false, apiKey: "ag_••••..." }` — key is partially masked.
 
 #### Generate New Key
 ```
 POST /api/apikey/generate
 ```
-Returns `{ apiKey: "ezy_..." }` — full key shown only once. Revokes any previous key.
+Returns `{ apiKey: "ag_..." }` — full key shown only once. Store it securely. Revokes any previous key.
 
 #### Revoke Key
 ```
@@ -301,7 +317,7 @@ Plan limit errors include `"upgrade": true` to indicate a higher plan is needed.
 Common HTTP status codes:
 - `400` — Bad request / validation error
 - `401` — Not authenticated
-- `403` — Plan limit reached
+- `403` — Plan limit reached or feature disabled
 - `404` — Resource not found
 - `429` — Rate limited
 - `500` — Server error
@@ -312,7 +328,8 @@ Common HTTP status codes:
 
 - **General API:** 300 requests per 15 minutes per API key
 - **Upload:** 2 requests per second
-- **AI Builder:** Subject to per-plan generation limits
+- **Analytics tracking:** 60 writes per minute per IP
+- **AI Builder:** Subject to per-plan generation limits (1 concurrent request max)
 
 ---
 
@@ -321,22 +338,22 @@ Common HTTP status codes:
 ```bash
 # 1. Create a project
 curl -X POST https://ezyhost.io/api/projects \
-  -H "x-api-key: YOUR_KEY" \
+  -H "x-api-key: $EZYHOST_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "my-site", "subdomain": "my-site"}'
 
 # 2. Upload files (ZIP)
 curl -X POST https://ezyhost.io/api/upload/PROJECT_ID \
-  -H "x-api-key: YOUR_KEY" \
+  -H "x-api-key: $EZYHOST_API_KEY" \
   -F "files=@site.zip"
 
 # 3. Check SEO
 curl https://ezyhost.io/api/seo/PROJECT_ID \
-  -H "x-api-key: YOUR_KEY"
+  -H "x-api-key: $EZYHOST_API_KEY"
 
 # 4. Add custom domain (optional, Solo+)
 curl -X POST https://ezyhost.io/api/domains/PROJECT_ID \
-  -H "x-api-key: YOUR_KEY" \
+  -H "x-api-key: $EZYHOST_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"domain": "example.com"}'
 ```
@@ -348,13 +365,13 @@ Your site is now live at `https://my-site.ezyhost.site`
 ```bash
 # 1. Generate a site with AI (SSE stream)
 curl -N -X POST https://ezyhost.io/api/aibuilder/chat \
-  -H "x-api-key: YOUR_KEY" \
+  -H "x-api-key: $EZYHOST_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"message": "build a modern portfolio with dark theme", "history": []}'
 
 # 2. Deploy the generated files to a project
 curl -X POST https://ezyhost.io/api/aibuilder/deploy/PROJECT_ID \
-  -H "x-api-key: YOUR_KEY" \
+  -H "x-api-key: $EZYHOST_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"files": [{"filename": "index.html", "content": "..."}]}'
 ```
