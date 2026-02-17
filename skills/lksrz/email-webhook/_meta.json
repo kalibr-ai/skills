@@ -1,0 +1,11 @@
+{
+  "owner": "lksrz",
+  "slug": "email-webhook",
+  "displayName": "Generic Email Webhook Receiver",
+  "latest": {
+    "version": "1.2.0",
+    "publishedAt": 1771360293721,
+    "commit": null
+  },
+  "history": []
+}
