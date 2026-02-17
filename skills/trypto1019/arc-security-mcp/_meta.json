@@ -3,9 +3,15 @@
   "slug": "arc-security-mcp",
   "displayName": "Arc Security Mcp",
   "latest": {
-    "version": "0.2.0",
-    "publishedAt": 1771322004289,
-    "commit": "https://github.com/openclaw/skills/commit/c3ff9a37b56819ef6777c25dd48d367ef4b81aa3"
+    "version": "0.2.1",
+    "publishedAt": 1771340287016,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "0.2.0",
+      "publishedAt": 1771322004289,
+      "commit": "https://github.com/openclaw/skills/commit/c3ff9a37b56819ef6777c25dd48d367ef4b81aa3"
+    }
+  ]
 }
