@@ -1,0 +1,42 @@
+  "name": "usage-visualizer",
+  "version": "1.0.1",
+  "description": "Advanced usage statistics and high-fidelity visual reporting for OpenClaw. Track token consumption, model efficiency, and prompt caching savings with professional PPT-style cards.",
+  "main": "scripts/fetch_usage.py",
+  "scripts": {
+    "fetch": "python3 scripts/fetch_usage.py",
+    "report": "python3 scripts/report.py",
+    "alert": "python3 scripts/alert.py",
+    "image": "python3 scripts/generate_report_image.py"
+  },
+  "keywords": [
+    "llm",
+    "cost",
+    "monitoring",
+    "openai",
+    "anthropic",
+    "gemini",
+    "usage",
+    "tracking",
+    "openclaw"
+  ],
+  "author": "VintLin",
+  "license": "MIT",
+  "homepage": "https://github.com/VintLin/usage-visualizer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VintLin/usage-visualizer"
+  },
+  "openclaw": {
+    "emoji": "📊",
+    "os": ["darwin", "linux"],
+    "requires": {
+      "bins": ["python3"]
+    }
+  },
+  "dependencies": {
+    "pyyaml": ">=6.0",
+    "requests": ">=2.28",
+    "html2image": ">=2.0.0",
+    "Pillow": ">=10.0.0"
+  }
+}
