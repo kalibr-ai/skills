@@ -1,13 +1,18 @@
 {
   "owner": "issa-me-sush",
   "slug": "openserv-agent-sdk",
-  "displayName": "Openserv Agent Sdk",
+  "displayName": "OpenServ Agent Sdk",
   "latest": {
-    "version": "1.0.3",
-    "publishedAt": 1771268629717,
-    "commit": "https://github.com/openclaw/skills/commit/c9c1c581265de96107f3f65f8681ca423a0926cc"
+    "version": "1.0.5",
+    "publishedAt": 1771275798416,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.3",
+      "publishedAt": 1771268629717,
+      "commit": "https://github.com/openclaw/skills/commit/c9c1c581265de96107f3f65f8681ca423a0926cc"
+    },
     {
       "version": "1.0.2",
       "publishedAt": 1770776074064,
