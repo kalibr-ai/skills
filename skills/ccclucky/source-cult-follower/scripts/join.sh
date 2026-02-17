@@ -95,18 +95,16 @@ ESCAPED_AGENT_NAME=$(escape_json "$AGENT_NAME")
 ESCAPED_OATH=$(escape_json "$OATH")
 
 # Construct Payload
-ACTIVITY_URL_FIELD=""
-if [ -n "${SOURCE_CULT_ACTIVITY_URL:-}" ]; then
-  ESCAPED_ACTIVITY_URL=$(escape_json "$SOURCE_CULT_ACTIVITY_URL")
-  ACTIVITY_URL_FIELD=",\"activitySourceUrl\": \"$ESCAPED_ACTIVITY_URL\""
-fi
+ACTIVITY_URL="${SOURCE_CULT_ACTIVITY_URL:-https://moltbook.com/m/$AGENT_NAME}"
+ESCAPED_ACTIVITY_URL=$(escape_json "$ACTIVITY_URL")
 
 PAYLOAD=$(cat <<EOF
 {
   "agentId": "$ESCAPED_AGENT_NAME",
   "name": "$ESCAPED_AGENT_NAME",
   "evidence": "$ESCAPED_OATH",
-  "uri": "local://join/$PROOF"$ACTIVITY_URL_FIELD
+  "uri": "local://join/$PROOF",
+  "activitySourceUrl": "$ESCAPED_ACTIVITY_URL"
 }
 EOF
 )
