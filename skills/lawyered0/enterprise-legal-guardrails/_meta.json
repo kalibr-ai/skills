@@ -3,9 +3,15 @@
   "slug": "enterprise-legal-guardrails",
   "displayName": "Enterprise Legal Guardrails",
   "latest": {
-    "version": "1.0.0",
-    "publishedAt": 1771309582341,
-    "commit": "https://github.com/openclaw/skills/commit/18e7af3c679c7cf56a70e3a4225439b21e23c093"
+    "version": "1.0.2",
+    "publishedAt": 1771310018727,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1771309582341,
+      "commit": "https://github.com/openclaw/skills/commit/18e7af3c679c7cf56a70e3a4225439b21e23c093"
+    }
+  ]
 }
