@@ -1,19 +1,14 @@
 ---
 name: meegle-api-setting-field-settings
 description: |
-  Meegle OpenAPI for field settings: get, create, update custom fields. Prerequisites: token and domain — see skill meegle-api-users.
+  Meegle OpenAPI for field settings: get, create, update custom fields.
 metadata:
   openclaw: {}
-  required_credentials:
-    domain: "From meegle-api-users"
-    plugin_access_token_or_user_access_token: "From meegle-api-users (obtain token first)"
 ---
 
 # Meegle API — Setting (Field Settings)
 
 APIs under this skill: Get Field Information, Create Custom Field, Update Custom Field.
-
-**Prerequisites:** See skill **meegle-api-users** for domain and request headers.
 
 ---
 

@@ -1,19 +1,14 @@
 ---
 name: meegle-api-setting-roles
 description: |
-  Meegle OpenAPI for workflow roles: create, get, update, delete. Prerequisites: token and domain — see skill meegle-api-users.
+  Meegle OpenAPI for workflow roles: create, get, update, delete.
 metadata:
   openclaw: {}
-  required_credentials:
-    domain: "From meegle-api-users"
-    plugin_access_token_or_user_access_token: "From meegle-api-users (obtain token first)"
 ---
 
 # Meegle API — Setting (Roles)
 
 APIs under this skill: Create Workflow Role, Get Detailed Role Settings, Update Workflow Role Settings, Delete Workflow Role Configuration.
-
-**Prerequisites:** See skill **meegle-api-users** for domain and request headers.
 
 ---
 

@@ -1,19 +1,14 @@
 ---
 name: meegle-api-setting-space-setting
 description: |
-  Meegle OpenAPI for space-level setting: work item types, business lines. Prerequisites: token and domain — see skill meegle-api-users.
+  Meegle OpenAPI for space-level setting: work item types, business lines.
 metadata:
   openclaw: {}
-  required_credentials:
-    domain: "From meegle-api-users"
-    plugin_access_token_or_user_access_token: "From meegle-api-users (obtain token first)"
 ---
 
 # Meegle API — Setting (Space Setting)
 
 APIs under this skill: Get Work Item Types in Space, Get Business Line Details in Space.
-
-**Prerequisites:** See skill **meegle-api-users** for domain and request headers.
 
 ---
 

@@ -1,19 +1,14 @@
 ---
 name: meegle-api-setting-workflow-settings
 description: |
-  Meegle OpenAPI for workflow/process template settings: list, get detail, create, update, delete. Prerequisites: token and domain — see skill meegle-api-users.
+  Meegle OpenAPI for workflow/process template settings: list, get detail, create, update, delete.
 metadata:
   openclaw: {}
-  required_credentials:
-    domain: "From meegle-api-users"
-    plugin_access_token_or_user_access_token: "From meegle-api-users (obtain token first)"
 ---
 
 # Meegle API — Setting (Workflow Settings)
 
 APIs under this skill: Get Workflow Templates, Get Detailed Settings of Workflow Templates, Create Workflow Templates, Update Workflow Template, Delete Workflow Templates.
-
-**Prerequisites:** See skill **meegle-api-users** for domain and request headers.
 
 ---
 

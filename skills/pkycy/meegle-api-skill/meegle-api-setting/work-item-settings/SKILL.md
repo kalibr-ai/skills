@@ -1,19 +1,14 @@
 ---
 name: meegle-api-setting-work-item-settings
 description: |
-  Meegle OpenAPI for work item type basic settings (get/update). Prerequisites: token and domain — see skill meegle-api-users.
+  Meegle OpenAPI for work item type basic settings (get/update).
 metadata:
   openclaw: {}
-  required_credentials:
-    domain: "From meegle-api-users"
-    plugin_access_token_or_user_access_token: "From meegle-api-users (obtain token first)"
 ---
 
 # Meegle API — Setting (Work Item Settings)
 
 APIs under this skill: Get Basic Work Item Settings, Update Work Item Basic Information Settings.
-
-**Prerequisites:** See skill **meegle-api-users** for domain and request headers.
 
 ---
 

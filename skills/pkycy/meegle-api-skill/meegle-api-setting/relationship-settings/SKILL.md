@@ -1,19 +1,14 @@
 ---
 name: meegle-api-setting-relationship-settings
 description: |
-  Meegle OpenAPI for work item relationship settings: list, create, update, delete. Prerequisites: token and domain — see skill meegle-api-users.
+  Meegle OpenAPI for work item relationship settings: list, create, update, delete.
 metadata:
   openclaw: {}
-  required_credentials:
-    domain: "From meegle-api-users"
-    plugin_access_token_or_user_access_token: "From meegle-api-users (obtain token first)"
 ---
 
 # Meegle API — Setting (Relationship Settings)
 
 APIs under this skill: Get the List of Work Item Relationships, Create Work Item Relationships, Update Work Item Relationships, Delete Work Item Relationships.
-
-**Prerequisites:** See skill **meegle-api-users** for domain and request headers.
 
 ---
 
