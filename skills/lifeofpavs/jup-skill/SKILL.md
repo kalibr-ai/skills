@@ -1,6 +1,16 @@
 ---
 name: jupiter-skill
 description: Execute Jupiter API operations on Solana - fetch quotes, sign transactions, execute swaps, prediction markets. Use when implementing token swaps, DCA, limit orders, lending, prediction markets, or any Jupiter integration. Includes scripts for Ultra and Metis swap flows.
+metadata:
+  primary_credential: JUP_API_KEY
+  required_environment_variables:
+    - JUP_API_KEY
+  optional_environment_variables:
+    - SOLANA_RPC_URL
+  required_config_paths:
+    - ~/.config/solana/id.json
+  sensitive_inputs:
+    - Solana wallet JSON file containing private key material
 ---
 
 # Jupiter API Skill
@@ -26,6 +36,8 @@ cd /path/to/jup-skill
 pnpm install
 ```
 
+Run `pnpm install` once per clone (and again after dependency changes) before any `pnpm fetch-api`, `pnpm wallet-sign`, `pnpm execute-ultra`, or `pnpm send-transaction` command.
+
 ## API Key Setup
 
 **ALWAYS required.** All Jupiter API endpoints require an `x-api-key` header.
@@ -37,6 +49,15 @@ pnpm install
    export JUP_API_KEY=your_api_key_here
    ```
    Or pass via `--api-key` flag on each command.
+
+## Wallet Safety
+
+Signing requires access to a local Solana wallet JSON file (`--wallet`), which contains private key material.
+
+- Do not use a high-value wallet for automation.
+- Prefer a dedicated low-balance wallet for this workflow.
+- For testing, prefer ephemeral keys.
+- If your setup supports it, prefer hardware signing over raw key files.
 
 ## Scripts
 
@@ -705,6 +726,37 @@ Solana transactions are limited to **1232 bytes**. If you hit this:
 ---
 
 ## Resources
+
+**Freshness note:** This skill includes Jupiter API guidance, but the API can change. After each new run/session, verify endpoints and params against the latest docs at [dev.jup.ag](https://dev.jup.ag).
+
+### Docs URLs for Claude Sync
+
+Check these first on each run/session:
+
+- `https://dev.jup.ag/llms.txt`
+- `https://dev.jup.ag/llms-full.txt`
+
+Then verify workflow-specific pages:
+
+- `https://dev.jup.ag/get-started/index.md`
+- `https://dev.jup.ag/portal/setup.md`
+- `https://dev.jup.ag/portal/rate-limit.md`
+- `https://dev.jup.ag/portal/responses.md`
+- `https://dev.jup.ag/docs/ultra/index.md`
+- `https://dev.jup.ag/docs/ultra/get-started.md`
+- `https://dev.jup.ag/docs/ultra/get-order.md`
+- `https://dev.jup.ag/docs/ultra/execute-order.md`
+- `https://dev.jup.ag/docs/ultra/response.md`
+- `https://dev.jup.ag/docs/ultra/rate-limit.md`
+- `https://dev.jup.ag/docs/ultra/search-token.md`
+- `https://dev.jup.ag/docs/swap/index.md`
+- `https://dev.jup.ag/docs/swap/get-quote.md`
+- `https://dev.jup.ag/docs/swap/build-swap-transaction.md`
+- `https://dev.jup.ag/docs/swap/send-swap-transaction.md`
+- `https://dev.jup.ag/docs/swap/common-errors.md`
+- `https://dev.jup.ag/updates/index.md`
+
+Any Jupiter docs page can also be fetched as markdown by appending `.md` to the path.
 
 - [Jupiter Portal](https://portal.jup.ag) - API key management
 - [Jupiter Docs](https://dev.jup.ag) - Full documentation
