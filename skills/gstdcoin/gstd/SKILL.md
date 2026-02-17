@@ -72,13 +72,26 @@ export MCP_TRANSPORT=sse
 python main.py
 ```
 
+### 4. Linux Swarm Client (участник роя)
+
+Для запуска Linux-ноды как участника роя:
+
+```bash
+cd A2A/swarm
+export GSTD_API_KEY="your_key"
+export GSTD_WALLET="EQ..."
+./run_swarm.sh
+```
+
+См. `A2A/swarm/README.md` для подробностей.
+
 ---
 
 ## Credential Tiers
 
 | Tier | Env Vars | Capabilities |
 |------|----------|--------------|
-| **Read-only** | `GSTD_API_KEY` only | All read operations: `find_work`, `recall`, `get_status`, `check_gstd_price`, `memorize`, `register_agent`, `pulse`, `get_agent_identity`, `get_ml_referral_report`, etc. |
+| **Read-only** | `GSTD_API_KEY` only | All read operations: `find_work`, `recall`, `get_status`, `check_gstd_price`, `memorize`, `register_agent`, `pulse`, `get_agent_identity`, `get_ml_referral_report`, etc. **Для `register_agent` и swarm требуется wallet:** либо из API key (Dashboard), либо `GSTD_WALLET` в env. |
 | **Signing** | `GSTD_API_KEY` + `AGENT_PRIVATE_MNEMONIC` | Adds `exchange_bridge_swap` (TON→GSTD), `sign_transfer` (TON), `send_gstd` (GSTD transfers), `buy_resources` (prepare swap). **Do NOT supply mnemonic unless you trust the code.** |
 
 **Important:** `GSTD_API_KEY` alone cannot sign or broadcast transactions. All signing operations require `AGENT_PRIVATE_MNEMONIC`.
