@@ -332,18 +332,31 @@ def checksum_binaries(skill_path, checksum_file=None):
     return findings, binaries_found
 
 
+def _is_safe_path(fpath, base_dir):
+    """Check that a resolved path stays within the expected base directory.
+
+    Prevents symlink-based directory escapes.
+    """
+    real_path = os.path.realpath(str(fpath))
+    real_base = os.path.realpath(str(base_dir))
+    return real_path.startswith(real_base + os.sep) or real_path == real_base
+
+
 def scan_directory(skill_path, verbose=False, checksum_file=None):
     """Scan an entire skill directory."""
     skill_path = Path(skill_path)
     findings = []
+
+    # Resolve to real path to prevent symlink attacks
+    real_skill_path = Path(os.path.realpath(str(skill_path)))
 
     # Check for typosquatting
     skill_name = skill_path.name
     findings.extend(check_typosquatting(skill_name))
 
     # Scan SKILL.md
-    skill_md = skill_path / "SKILL.md"
-    if skill_md.exists():
+    skill_md = real_skill_path / "SKILL.md"
+    if skill_md.exists() and _is_safe_path(skill_md, real_skill_path):
         findings.extend(scan_skill_md(str(skill_md)))
         # Also check for dynamic instruction fetching in SKILL.md
         with open(skill_md) as f:
@@ -360,9 +373,19 @@ def scan_directory(skill_path, verbose=False, checksum_file=None):
 
     # Scan all scripts and code files
     code_extensions = {".py", ".js", ".ts", ".sh", ".bash", ".rb", ".go", ".rs", ".pl"}
-    for root, dirs, files in os.walk(skill_path):
+    for root, dirs, files in os.walk(real_skill_path, followlinks=False):
         for f in files:
             fpath = Path(root) / f
+            # Skip symlinks — prevent reading files outside skill directory
+            if fpath.is_symlink():
+                findings.append({
+                    "file": str(fpath.relative_to(real_skill_path)),
+                    "line": 0,
+                    "severity": "HIGH",
+                    "description": "Symlink detected — potential directory escape",
+                    "match": f"→ {os.readlink(str(fpath))}",
+                })
+                continue
             if fpath.suffix in code_extensions:
                 try:
                     findings.extend(scan_script(str(fpath)))
