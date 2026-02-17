@@ -11,13 +11,16 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Add sibling skill scripts to path
-SKILLS_BASE = Path.home() / ".openclaw" / "skills"
+# Add sibling skill scripts to path — use realpath to prevent symlink hijacking
+SKILLS_BASE = Path(os.path.realpath(str(Path.home() / ".openclaw" / "skills")))
 SCANNER_PATH = SKILLS_BASE / "skill-scanner" / "scripts"
 TRUST_PATH = SKILLS_BASE / "trust-verifier" / "scripts"
 
-sys.path.insert(0, str(SCANNER_PATH))
-sys.path.insert(0, str(TRUST_PATH))
+# Only add to sys.path if they resolve to expected locations under SKILLS_BASE
+for _p in (SCANNER_PATH, TRUST_PATH):
+    _real = os.path.realpath(str(_p))
+    if _real.startswith(str(SKILLS_BASE)) and os.path.isdir(_real):
+        sys.path.insert(0, _real)
 
 
 def _find_skill_dirs():
@@ -38,7 +41,10 @@ def _find_skill_dirs():
 
 def audit_skill(skill_path, generate_attestation=False):
     """Run a full audit on a single skill."""
-    skill_path = Path(skill_path)
+    skill_path = Path(os.path.realpath(str(skill_path)))
+    if not skill_path.is_dir():
+        print(f"Error: {skill_path} is not a directory", file=sys.stderr)
+        return {"name": str(skill_path), "risk_level": "UNKNOWN", "error": "Not a directory"}
     skill_name = skill_path.name
     result = {"name": skill_name, "path": str(skill_path)}
 
