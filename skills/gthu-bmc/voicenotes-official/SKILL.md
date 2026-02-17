@@ -239,3 +239,20 @@ Key fields:
 - No telemetry or analytics
 - No automatic code execution or file overwrites
 - Read/write limited to user's own Voicenotes data via authenticated API
+
+## Input Sanitization
+
+When constructing API requests, the agent MUST sanitize all user-provided inputs:
+
+- **Search queries**: URL-encode the `query` parameter using `--data-urlencode` instead of string interpolation
+- **Recording UUIDs**: Validate format (alphanumeric, 8 characters) before use; reject any input containing shell metacharacters (`;`, `|`, `&`, `$`, `` ` ``, `\`)
+- **JSON body fields**: Use proper JSON encoding; never concatenate raw user input into JSON strings
+
+**Safe example for search:**
+```bash
+curl -G "https://api.voicenotes.com/api/integrations/open-claw/search/semantic" \
+  --data-urlencode "query=user search term here" \
+  -H "Authorization: $VOICENOTES_API_KEY"
+```
+
+**UUID validation pattern:** `/^[a-zA-Z0-9]{8}$/`

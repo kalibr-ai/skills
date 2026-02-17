@@ -3,11 +3,16 @@
   "slug": "voicenotes-official",
   "displayName": "Voicenotes Official",
   "latest": {
-    "version": "1.0.2",
-    "publishedAt": 1771305123947,
-    "commit": "https://github.com/openclaw/skills/commit/92d5d22cfbd8e2d025116012ef400cf43c1eba7e"
+    "version": "1.0.3",
+    "publishedAt": 1771342425983,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.2",
+      "publishedAt": 1771305123947,
+      "commit": "https://github.com/openclaw/skills/commit/92d5d22cfbd8e2d025116012ef400cf43c1eba7e"
+    },
     {
       "version": "1.0.1",
       "publishedAt": 1770623406782,
