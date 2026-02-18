@@ -1,19 +1,14 @@
 ---
 name: video-prompting-guide
-description: |
-  Best practices and techniques for writing effective AI video generation prompts.
-  Covers: Veo, Seedance, Wan, Grok, Kling, Runway, Pika, Sora prompting strategies.
-  Learn: shot types, camera movements, lighting, pacing, style keywords, negative prompts.
-  Use for: improving video quality, getting consistent results, professional video prompts.
-  Triggers: video prompt, how to prompt video, veo prompts, video generation tips,
-  better ai video, video prompt engineering, video prompt guide, video prompt template,
-  ai video tips, video prompt best practices, video prompt examples, cinematography prompts
+description: "Best practices and techniques for writing effective AI video generation prompts. Covers: Veo, Seedance, Wan, Grok, Kling, Runway, Pika, Sora prompting strategies. Learn: shot types, camera movements, lighting, pacing, style keywords, negative prompts. Use for: improving video quality, getting consistent results, professional video prompts. Triggers: video prompt, how to prompt video, veo prompts, video generation tips, better ai video, video prompt engineering, video prompt guide, video prompt template, ai video tips, video prompt best practices, video prompt examples, cinematography prompts"
 allowed-tools: Bash(infsh *)
 ---
 
 # Video Prompting Guide
 
 Best practices for writing effective AI video generation prompts via [inference.sh](https://inference.sh).
+
+![Video Prompting Guide](https://cloud.inference.sh/app/files/u/4mg21r6ta37mpaz6ktzwtt8krr/01kg2c0egyg243mnyth4y6g51q.jpeg)
 
 ## Quick Start
 
@@ -25,6 +20,8 @@ infsh app run google/veo-3-1-fast --input '{
   "prompt": "Cinematic tracking shot of a red sports car driving through Tokyo at night, neon lights reflecting on wet streets, rain falling, 4K, shallow depth of field"
 }'
 ```
+
+> **Install note:** The [install script](https://cli.inference.sh) only detects your OS/architecture, downloads the matching binary from `dist.inference.sh`, and verifies its SHA-256 checksum. No elevated permissions or background processes. [Manual install & verification](https://dist.inference.sh/cli/checksums.txt) available.
 
 ## Prompt Structure Formula
 
@@ -223,19 +220,19 @@ infsh app run google/veo-3-1-fast --input '{
 
 ```bash
 # Generate videos
-npx skills add inference-sh/agent-skills@ai-video-generation
+npx skills add inference-sh/skills@ai-video-generation
 
 # Google Veo specific
-npx skills add inference-sh/agent-skills@google-veo
+npx skills add inference-sh/skills@google-veo
 
 # Generate images for image-to-video
-npx skills add inference-sh/agent-skills@ai-image-generation
+npx skills add inference-sh/skills@ai-image-generation
 
 # General prompt engineering
-npx skills add inference-sh/agent-skills@prompt-engineering
+npx skills add inference-sh/skills@prompt-engineering
 
 # Full platform skill
-npx skills add inference-sh/agent-skills@inference-sh
+npx skills add inference-sh/skills@inference-sh
 ```
 
 Browse all video apps: `infsh app list --category video`
