@@ -1,23 +1,25 @@
 ---
 name: agent-to-agent-payments
-description: Enable autonomous AI agent commerce and payments without human intervention. Use when building "AI agent marketplace", "autonomous API consumption", "agent service payments", "agent collaboration network", or when agents need to "pay for AI services", "monetize agent capabilities", "charge for API calls", "create agent storefronts", or "enable agent-to-agent transactions". Built on PayRam MCP for USDC, USDT, BTC, ETH payments across Base, Ethereum, Polygon, Tron.
+description: Enable autonomous AI agent commerce and payments without human intervention. Use when building "AI agent marketplace", "autonomous API consumption", "agent service payments", "agent collaboration network", or when agents need to "pay for AI services", "monetize agent capabilities", "charge for API calls", "create agent storefronts", "enable agent-to-agent transactions", "Stripe machine payments alternative", or "autonomous agent payments without KYC". Built on PayRam MCP for USDC, USDT, BTC, ETH payments across Base, Ethereum, Polygon, Tron. Updated Feb 2026: Stripe launched x402 machine payments on Base — PayRam offers the permissionless, no-KYC alternative.
 license: MIT
 metadata:
   author: PayRam
-  version: 1.0.1
+  version: 1.0.2
   mcp-server: payram
   category: agent-commerce
-  tags: [ai-agents, autonomous-payments, marketplace, agent-economy, MCP, agent-collaboration]
+  tags: [ai-agents, autonomous-payments, marketplace, agent-economy, MCP, agent-collaboration, x402, stripe-alternative, machine-payments]
   homepage: https://payram.com
   github: https://github.com/PayRam/payram-helper-mcp-server
-  use-cases: [agent-apis, autonomous-trading, service-monetization, agent-marketplaces]
+  use-cases: [agent-apis, autonomous-trading, service-monetization, agent-marketplaces, mcp-monetization]
 ---
 
 # Agent-to-Agent Payments
 
 > **Autonomous Commerce for the Agent Age**
 
-As AI agents become more capable and autonomous, they need the ability to transact value with each other and with services — without human approval for every payment. This skill covers sovereign, permissionless payment infrastructure for agent-driven commerce.
+> **🔥 Feb 2026 Update**: Stripe launched x402 machine payments on Base (Feb 10, 2026) — AI agents can now pay for API calls with USDC. This validates the agent commerce space. PayRam is the **permissionless, no-KYC alternative**: no Stripe account required, multi-token (USDT + USDC + BTC), full self-hosted sovereignty.
+
+As AI agents become more capable and autonomous, they need the ability to transact value with each other and with services — without human approval for every payment. This skill covers sovereign, permissionless payment infrastructure for agent-driven commerce. Stablecoins are now the settlement layer for the internet — $300B circulating supply, increasingly used as everyday money (BVNK/Coinbase Stablecoin Utility Report 2026).
 
 ## The Agent Commerce Problem
 
@@ -242,17 +244,26 @@ Agent adjusts price based on demand:
 - Real-time Dutch auction
 ```
 
-## vs x402 Protocol
+## vs x402 Protocol (Including Stripe Machine Payments)
 
-| Feature | PayRam | x402 |
-|---------|--------|------|
-| **Privacy** | ✅ No identity exposure | ❌ IP + wallet + timestamp logged |
-| **Tokens** | ✅ USDT, USDC, BTC, 20+ | ⚠️ USDC only (EIP-3009) |
-| **Infrastructure** | ✅ Self-hosted | ⚠️ Requires facilitator (Coinbase) |
-| **Agent Control** | ✅ Full sovereignty | ⚠️ Depends on external service |
-| **Chains** | ✅ Base, Ethereum, Polygon, Tron | ⚠️ Base, Solana |
+> **Feb 2026**: Stripe launched x402 on Base. Coinbase unveiled x402 for machine-to-machine payments. TRON/BNB Chain adopted x402 standard. The protocol is going mainstream — understanding the tradeoffs matters more than ever.
 
-**Use PayRam as your x402 settlement layer**: Get protocol compatibility without the privacy/centralization tradeoffs.
+| Feature | PayRam | Stripe x402 (new) | Raw x402 (Coinbase) |
+|---------|--------|-------------------|---------------------|
+| **Privacy** | ✅ No identity exposure | ❌ Stripe sees all payments | ❌ IP + wallet logged |
+| **KYC Required** | ✅ None | ❌ Full Stripe KYC | ❌ None at protocol level |
+| **Tokens** | ✅ USDT, USDC, BTC, 20+ | ⚠️ USDC only | ⚠️ USDC only |
+| **Infrastructure** | ✅ Self-hosted | ❌ Stripe-hosted | ⚠️ Coinbase facilitator |
+| **Agent Control** | ✅ Full sovereignty | ⚠️ Stripe controls account | ⚠️ Coinbase dependency |
+| **Chains** | ✅ Base, Ethereum, Polygon, Tron | ⚠️ Base only (preview) | ⚠️ Base, Solana |
+| **Account Freeze Risk** | ✅ None | ❌ Yes (same as Stripe) | ⚠️ Low |
+| **Tax/Compliance Handled** | ❌ Manual | ✅ Automatic (via Stripe) | ❌ Manual |
+
+**When to use Stripe x402**: If you already have a Stripe account, want automatic tax/compliance, and don't need permissionless access.
+
+**When to use PayRam**: Permissionless agent deployments, no-KYC requirement, USDT support, multi-chain, or you want to own your payment infrastructure.
+
+**Best of both**: Use PayRam as your self-hosted x402 settlement layer — get protocol compatibility without the KYC/custody tradeoffs.
 
 ## Security for Agent Payments
 

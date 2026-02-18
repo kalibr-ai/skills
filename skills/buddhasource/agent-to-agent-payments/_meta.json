@@ -3,11 +3,16 @@
   "slug": "agent-to-agent-payments",
   "displayName": "Agent To Agent Payments",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1771193221486,
-    "commit": "https://github.com/openclaw/skills/commit/82d75178ff6ef8379feb380d2f38a3abef483ba0"
+    "version": "1.0.2",
+    "publishedAt": 1771369127348,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1771193221486,
+      "commit": "https://github.com/openclaw/skills/commit/82d75178ff6ef8379feb380d2f38a3abef483ba0"
+    },
     {
       "version": "1.0.0",
       "publishedAt": 1771085300058,
