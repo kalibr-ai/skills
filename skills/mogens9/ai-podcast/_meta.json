@@ -3,11 +3,16 @@
   "slug": "ai-podcast",
   "displayName": "Magic Podcast",
   "latest": {
-    "version": "1.0.6",
-    "publishedAt": 1771350318819,
-    "commit": "https://github.com/openclaw/skills/commit/6a035bd8a775f548500afd0f14026e2acd215f64"
+    "version": "1.0.8",
+    "publishedAt": 1771356903282,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.6",
+      "publishedAt": 1771350318819,
+      "commit": "https://github.com/openclaw/skills/commit/6a035bd8a775f548500afd0f14026e2acd215f64"
+    },
     {
       "version": "1.0.0",
       "publishedAt": 1771332978377,

@@ -16,8 +16,9 @@ Use MagicPodcast to:
 3. Ask for podcast language (do not assume).
 4. Confirm: `Ok, want me to make a podcast of this "topic/pdf" in "language". Should I do it?`
 5. Create a two-person dialogue podcast from that exact source.
-6. Poll job status until completion (every 20 seconds).
-7. Return title plus the MagicPodcast app library URL.
+6. Immediately return `https://www.magicpodcast.app/app/` so user can follow progress in the library.
+7. Check status only when user asks.
+8. Return title plus the shareable podcast URL when complete.
 
 ## Keywords
 
@@ -74,25 +75,15 @@ curl -sS "$MAGICPODCAST_API_URL/agent/v1/jobs/<job-id>" \
   -H "x-api-key: $MAGICPODCAST_API_KEY"
 ```
 
-Poll every 20 seconds with a safe cap (max 45 checks):
-
-```bash
-for i in $(seq 1 45); do
-  RESPONSE=$(curl -sS "$MAGICPODCAST_API_URL/agent/v1/jobs/<job-id>" \
-    -H "x-api-key: $MAGICPODCAST_API_KEY")
-  echo "$RESPONSE"
-  echo "$RESPONSE" | grep -q '"statusLabel":"complete"' && break
-  echo "$RESPONSE" | grep -q '"statusLabel":"failed"' && break
-  sleep 20
-done
-```
-
 - Signed-in users can generate free podcast.
 - Expected generation time is usually 2-5 minutes.
-- Return `outputs.appUrl` as the default completion link.
+- Right after starting, direct users to `https://www.magicpodcast.app/app/` (all user podcasts are shown there).
+- Return `outputs.shareUrl` as the default completion link.
+- If `outputs.shareUrl` is missing, fall back to `outputs.appUrl`.
+- On completion, answer: `Here is your podcast link: <url>`.
 - If API returns an error, surface the exact error message and details.
 - Warn users not to send sensitive documents unless they approve external processing.
 
-Terminal states for polling:
-- `statusLabel = "complete"`: return `outputs.appUrl`.
+Status checks:
+- `statusLabel = "complete"`: return `outputs.shareUrl` (or `outputs.appUrl` as fallback).
 - `statusLabel = "failed"`: return error message/details to user.
