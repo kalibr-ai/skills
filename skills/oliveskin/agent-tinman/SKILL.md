@@ -33,7 +33,6 @@ permissions:
 
 Tinman is a forward-deployed research agent that discovers unknown failure modes in AI systems through systematic experimentation.
 
-Feedback/updates: https://x.com/cantshutup_
 
 ## Security and Trust Notes
 
@@ -293,3 +292,7 @@ report_channel: null    # Optional: send alerts to channel
 - No session data sent externally
 - Findings stored in your workspace only
 - Respects OpenClaw's session isolation
+
+## Feedback / Contact
+[twitter](https://x.com/cantshutup_)
+[Github](https://github.com/oliveskin/)
