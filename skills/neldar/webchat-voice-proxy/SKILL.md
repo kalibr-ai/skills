@@ -79,3 +79,42 @@ Expected:
 - No transcription result → check local faster-whisper endpoint first.
 
 See `references/troubleshooting.md` for exact commands.
+
+## What this skill modifies
+
+Before installing, be aware of all system changes `deploy.sh` makes:
+
+| What | Path | Action |
+|---|---|---|
+| Control UI HTML | `<npm-global>/openclaw/dist/control-ui/index.html` | Adds `<script>` tag for voice-input.js |
+| Control UI asset | `<npm-global>/openclaw/dist/control-ui/assets/voice-input.js` | Copies mic button JS |
+| Gateway config | `~/.openclaw/openclaw.json` | Adds HTTPS origin to `gateway.controlUi.allowedOrigins` |
+| Systemd service | `~/.config/systemd/user/openclaw-voice-https.service` | Creates + enables persistent HTTPS proxy |
+| Gateway hook | `~/.openclaw/hooks/voice-input-inject/` | Installs startup hook that re-injects JS after updates |
+| Workspace files | `~/.openclaw/workspace/voice-input/` | Copies voice-input.js, https-server.py |
+| TLS certs | `~/.openclaw/workspace/voice-input/certs/` | Auto-generated self-signed cert on first run |
+
+The injected JS (`voice-input.js`) runs inside the Control UI and interacts with the chat input. Review the source before deploying.
+
+## Uninstall
+
+To fully revert all changes:
+
+```bash
+bash scripts/uninstall.sh
+```
+
+This will:
+1. Stop and remove `openclaw-voice-https.service`
+2. Remove the gateway startup hook
+3. Remove `voice-input.js` from Control UI and undo the index.html injection
+4. Remove the HTTPS origin from gateway config
+5. Restart the gateway
+
+Workspace files (`voice-input/`) and TLS certs are kept by default. To remove them too:
+
+```bash
+rm -rf ~/.openclaw/workspace/voice-input
+```
+
+The faster-whisper backend is **not** touched by uninstall — remove it separately via `faster-whisper-local-service` if needed.

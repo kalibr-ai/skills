@@ -3,9 +3,15 @@
   "slug": "webchat-voice-proxy",
   "displayName": "Webchat Voice Proxy",
   "latest": {
-    "version": "0.1.11",
-    "publishedAt": 1771330352446,
-    "commit": "https://github.com/openclaw/skills/commit/bfdacc93639331e57dc4b8543399b093905755a9"
+    "version": "0.2.0",
+    "publishedAt": 1771371143626,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "0.1.11",
+      "publishedAt": 1771330352446,
+      "commit": "https://github.com/openclaw/skills/commit/bfdacc93639331e57dc4b8543399b093905755a9"
+    }
+  ]
 }

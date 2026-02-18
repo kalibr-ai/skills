@@ -1,6 +1,25 @@
 (function () {
   'use strict';
 
+  // --- CSS Animations (injected once) ---
+  const STYLE_ID = 'oc-voice-animations';
+  if (!document.getElementById(STYLE_ID)) {
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      @keyframes oc-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(192,57,43,0.6); }
+        70%  { box-shadow: 0 0 0 10px rgba(192,57,43,0); }
+        100% { box-shadow: 0 0 0 0 rgba(192,57,43,0); }
+      }
+      @keyframes oc-spin {
+        0%   { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   const TRANSCRIBE_URL = location.port === '8443' ? '/transcribe' : 'http://127.0.0.1:18790/transcribe';
   const MIN_TEXT_CHARS = 6;
   const MIN_CONFIDENCE = 0.35;
@@ -57,6 +76,7 @@
     btn.style.border = '1px solid #d3272f';
     btn.style.color = '#fff';
     btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.16)';
+    btn.style.animation = 'none';
     btn.innerHTML = MIC_ICON;
   }
 
@@ -66,6 +86,7 @@
     btn.style.border = '1px solid #ffffff';
     btn.style.color = '#fff';
     btn.style.boxShadow = '0 0 0 6px rgba(255,255,255,0.16), 0 1px 3px rgba(0,0,0,0.16)';
+    btn.style.animation = 'oc-pulse 1.4s ease-in-out infinite';
     btn.innerHTML = STOP_ICON;
   }
 
@@ -75,7 +96,8 @@
     btn.style.border = '1px solid #ffffff';
     btn.style.color = '#fff';
     btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.16)';
-    btn.innerHTML = HOURGLASS_ICON;
+    btn.style.animation = 'none';
+    btn.innerHTML = `<span style="display:inline-flex;animation:oc-spin 1.2s linear infinite">${HOURGLASS_ICON}</span>`;
   }
 
   function styleInline(sendBtn) {
