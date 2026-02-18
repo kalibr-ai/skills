@@ -1,0 +1,11 @@
+{
+  "owner": "subfeed-ai",
+  "slug": "subfeed",
+  "displayName": "Subfeed",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1771345211187,
+    "commit": null
+  },
+  "history": []
+}
