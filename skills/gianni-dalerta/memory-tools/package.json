@@ -1,23 +1,23 @@
 {
   "name": "memory-tools",
-  "version": "1.1.3",
-  "description": "Memory-as-Tools plugin for OpenClaw - Agent-controlled persistent memory with confidence scoring and decay",
+  "version": "2.0.4",
+  "description": "Memory-as-Tools plugin for OpenClaw - Agent-controlled persistent memory with QMD-powered search",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "prepublishOnly": "npm run build",
-    "build": "tsc",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "oxlint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:release": "node scripts/verify-release.mjs",
+    "prepublishOnly": "npm run build && npm run verify:release"
   },
   "dependencies": {
-    "@lancedb/lancedb": "^0.23.0",
     "@sinclair/typebox": "0.34.48",
-    "openai": "^6.17.0",
     "sql.js": "^1.13.0"
   },
   "devDependencies": {
@@ -49,7 +49,9 @@
     "memory",
     "ai-agent",
     "plugin",
-    "vector-search"
+    "vector-search",
+    "qmd",
+    "local-llm"
   ],
   "author": "Purple Horizons",
   "license": "MIT",

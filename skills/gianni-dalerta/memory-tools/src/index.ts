@@ -1,78 +1,93 @@
 /**
- * OpenClaw Memory-as-Tools Plugin
+ * OpenClaw Memory-as-Tools Plugin v2
  *
- * Agent-controlled memory with confidence scoring, decay, and semantic search.
- * The agent decides WHEN to store/retrieve memories (AgeMem pattern).
+ * Agent-controlled memory with QMD-powered search.
+ * File-based storage, no external APIs required.
  *
  * Key features:
  * - Six memory tools: store, update, forget, search, summarize, list
- * - Hybrid SQLite + LanceDB storage
- * - Confidence scoring (how accurate)
- * - Importance scoring (how critical)
- * - Decay/expiration for temporal memories
- * - Auto-inject standing instructions at conversation start
+ * - File-based storage (markdown with YAML frontmatter)
+ * - QMD search (BM25 + vector + reranking, all local)
+ * - Auto-migration from v1
+ * - No OpenAI dependency
  */
 
 import type { OpenClawPluginApi } from './plugin-types.js';
-import { Type } from '@sinclair/typebox';
 import { parseConfig } from './config.js';
-import { vectorDimsForModel, MEMORY_CATEGORIES } from './types.js';
-import { EmbeddingProvider } from './embeddings.js';
-import { MemoryStore } from './store.js';
+import { MemoryStoreV2 } from './store.js';
 import { createMemoryTools } from './tools.js';
-
-// System prompt addition to guide agent on memory usage
-const MEMORY_SYSTEM_PROMPT = `
-## Memory Management
-
-You have access to persistent memory tools. Use them thoughtfully:
-
-**STORE** new memories when:
-- User shares personal information (names, dates, preferences)
-- User gives standing instructions ("always...", "never...", "I prefer...")
-- User mentions relationships ("my wife", "my boss")
-- Something would be useful in future conversations
-
-**SEARCH** memories when:
-- Starting a new conversation (get context)
-- User references the past ("remember when...")
-- Personalizing responses
-- Before storing (avoid duplicates)
-
-**UPDATE** when information changes or becomes more accurate.
-
-**FORGET** when user requests or info becomes obsolete.
-
-### Guidelines
-
-1. **Be selective** — Don't store everything. Store what matters.
-2. **Be atomic** — One fact per memory. "User likes coffee and tea" → two memories.
-3. **Be confident** — Use confidence scores honestly:
-   - 1.0 = User explicitly stated
-   - 0.7-0.9 = User strongly implied
-   - 0.5-0.7 = Inferred from context
-4. **Use decay** — Events should decay (decayDays). Facts usually shouldn't.
-5. **Check first** — Search before storing to avoid duplicates.
-`;
+import {
+  hasLegacyDatabase,
+  hasNewMemories,
+  migrateFromV1,
+  printMigrationRequired,
+  printMigrationSuccess,
+} from './migration.js';
 
 // Plugin definition
 const memoryToolsPlugin = {
   id: 'memory-tools',
   name: 'Memory Tools',
-  description: 'Agent-controlled memory with confidence scoring, decay, and semantic search',
+  description: 'Agent-controlled memory with QMD-powered search (v2)',
   kind: 'memory' as const,
 
-  register(api: OpenClawPluginApi) {
+  async register(api: OpenClawPluginApi) {
     const cfg = parseConfig(api.pluginConfig);
-    const resolvedDbPath = api.resolvePath(cfg.dbPath!);
-    const model = cfg.embedding.model ?? 'text-embedding-3-small';
-    const vectorDim = vectorDimsForModel(model);
+    const memoriesPath = api.resolvePath(cfg.memoriesPath!);
+    const legacyDbPath = api.resolvePath(cfg.legacyDbPath!);
 
-    const embeddings = new EmbeddingProvider(cfg.embedding.apiKey, model);
-    const store = new MemoryStore(resolvedDbPath, embeddings, vectorDim);
-    const tools = createMemoryTools(store);
+    // ═══════════════════════════════════════════════════════════════════════
+    // Auto-Migration from v1
+    // ═══════════════════════════════════════════════════════════════════════
 
-    api.logger.info(`memory-tools: initialized (db: ${resolvedDbPath}, model: ${model})`);
+    const hasLegacy = hasLegacyDatabase(legacyDbPath);
+    const hasNew = hasNewMemories(memoriesPath);
+
+    if (cfg.autoMigrateLegacy === true && hasLegacy && !hasNew) {
+      // Need to migrate
+      printMigrationRequired(legacyDbPath);
+      api.logger.info('memory-tools: Starting migration from v1...');
+
+      const result = await migrateFromV1(legacyDbPath, memoriesPath);
+
+      if (result.success || result.migratedCount > 0) {
+        printMigrationSuccess(result);
+        api.logger.info(`memory-tools: Migration complete (${result.migratedCount} memories)`);
+      } else {
+        api.logger.error(`memory-tools: Migration failed: ${result.errors.join(', ')}`);
+        throw new Error(`Migration failed: ${result.errors.join(', ')}`);
+      }
+    } else if (cfg.autoMigrateLegacy !== true && hasLegacy && !hasNew) {
+      api.logger.warn(
+        'memory-tools: legacy database detected but autoMigrateLegacy is disabled by default; skipping migration'
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Initialize Store
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const store = new MemoryStoreV2(memoriesPath, cfg.qmdCollection);
+
+    // Check QMD availability
+    const qmdAvailable = await store.isQMDAvailable();
+    if (!qmdAvailable) {
+      api.logger.warn(
+        'memory-tools: QMD not installed. Install with: npm install -g @tobilu/qmd'
+      );
+      api.logger.warn('memory-tools: Semantic search will be limited until QMD is installed.');
+    } else {
+      try {
+        await store.init();
+        api.logger.info(`memory-tools: initialized with QMD (path: ${memoriesPath})`);
+      } catch (err: any) {
+        api.logger.warn(
+          `memory-tools: QMD initialization failed, continuing in basic mode: ${err?.message || err}`
+        );
+      }
+    }
+
+    const tools = createMemoryTools(store as any); // Cast for compatibility
 
     // ═══════════════════════════════════════════════════════════════════════
     // Register Tools
@@ -149,23 +164,21 @@ const memoryToolsPlugin = {
     // ═══════════════════════════════════════════════════════════════════════
 
     // Auto-inject standing instructions at conversation start
-    if (cfg.autoInjectInstructions !== false) {
+    if (cfg.autoInjectInstructions === true) {
       api.on('before_agent_start', async (event: { prompt?: string }) => {
-        // Get standing instructions (use async to ensure DB is initialized)
-        const instructions = await store.getByCategoryAsync('instruction', 10);
+        const instructions = store.getByCategory('instruction', 10);
 
         if (instructions.length === 0) {
-          return { systemPrompt: MEMORY_SYSTEM_PROMPT };
+          return undefined;
         }
 
         const instructionList = instructions
-          .map(m => `- ${m.content}`)
+          .map((m: { content: string }) => `- ${m.content}`)
           .join('\n');
 
         api.logger.info?.(`memory-tools: injecting ${instructions.length} standing instructions`);
 
         return {
-          systemPrompt: MEMORY_SYSTEM_PROMPT,
           prependContext: `<standing-instructions>\nRemember these user instructions:\n${instructionList}\n</standing-instructions>`,
         };
       });
@@ -179,22 +192,23 @@ const memoryToolsPlugin = {
       ({ program }: { program: any }) => {
         const memory = program
           .command('memory-tools')
-          .description('Memory-as-Tools plugin commands');
+          .description('Memory-as-Tools plugin commands (v2)');
 
         memory
           .command('stats')
           .description('Show memory statistics')
           .action(async () => {
-            const total = await store.countAsync();
-            const instructions = (await store.getByCategoryAsync('instruction')).length;
-            const facts = (await store.getByCategoryAsync('fact')).length;
-            const preferences = (await store.getByCategoryAsync('preference')).length;
+            const total = store.count();
+            const instructions = store.getByCategory('instruction').length;
+            const facts = store.getByCategory('fact').length;
+            const preferences = store.getByCategory('preference').length;
 
-            console.log(`Memory Statistics:`);
+            console.log(`Memory Statistics (v2):`);
             console.log(`  Total: ${total}`);
             console.log(`  Instructions: ${instructions}`);
             console.log(`  Facts: ${facts}`);
             console.log(`  Preferences: ${preferences}`);
+            console.log(`  Storage: ${memoriesPath}`);
           });
 
         memory
@@ -203,7 +217,7 @@ const memoryToolsPlugin = {
           .option('-c, --category <category>', 'Filter by category')
           .option('-l, --limit <n>', 'Max results', '20')
           .action(async (opts: { category?: string; limit?: string }) => {
-            const results = await store.listAsync({
+            const results = store.list({
               category: opts.category as any,
               limit: parseInt(opts.limit ?? '20'),
             });
@@ -216,7 +230,7 @@ const memoryToolsPlugin = {
 
         memory
           .command('search <query>')
-          .description('Search memories')
+          .description('Search memories using QMD')
           .option('-l, --limit <n>', 'Max results', '10')
           .action(async (query: string, opts: { limit?: string }) => {
             const results = await store.search({
@@ -234,8 +248,24 @@ const memoryToolsPlugin = {
           .command('export')
           .description('Export all memories as JSON')
           .action(async () => {
-            const results = await store.listAsync({ limit: 10000 });
+            const results = store.list({ limit: 10000 });
             console.log(JSON.stringify(results.items, null, 2));
+          });
+
+        memory
+          .command('reindex')
+          .description('Force QMD to re-index all memories')
+          .action(async () => {
+            console.log('Re-indexing memories with QMD...');
+            await store.reindex();
+            console.log('Done!');
+          });
+
+        memory
+          .command('path')
+          .description('Show memories storage path')
+          .action(() => {
+            console.log(memoriesPath);
           });
       },
       { commands: ['memory-tools'] }
@@ -248,8 +278,8 @@ const memoryToolsPlugin = {
     api.registerService({
       id: 'memory-tools',
       start: async () => {
-        const count = await store.countAsync();
-        api.logger.info(`memory-tools: service started (${count} memories)`);
+        const count = store.count();
+        api.logger.info(`memory-tools: service started (${count} memories, v2)`);
       },
       stop: () => {
         store.close();
@@ -263,6 +293,7 @@ export default memoryToolsPlugin;
 
 // Re-export types for external use
 export * from './types.js';
-export { MemoryStore } from './store.js';
-export { EmbeddingProvider } from './embeddings.js';
+export { MemoryStoreV2 as MemoryStore } from './store.js';
 export { createMemoryTools } from './tools.js';
+export { MemoryFileManager } from './file-manager.js';
+export { QMDClient } from './qmd.js';

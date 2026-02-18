@@ -1,19 +1,23 @@
 ---
 name: memory-tools
-description: Agent-controlled memory plugin for OpenClaw with confidence scoring, decay, and semantic search. The agent decides WHEN to store/retrieve memories — no auto-capture noise.
-homepage: https://github.com/Purple-Horizons/openclaw-memory-tools
+description: Agent-controlled memory plugin for OpenClaw with confidence scoring, decay, and semantic search. The agent decides WHEN to store/retrieve memories — no auto-capture noise. v2 uses file-based storage with optional QMD search (no external APIs required).
+homepage: https://github.com/Purple-Horizons/memory-tools
 metadata:
   openclaw:
     emoji: 🧠
     kind: plugin
-    requires:
-      env:
-        - OPENAI_API_KEY
 ---
 
-# Memory Tools
+# Memory Tools v2
 
 Agent-controlled persistent memory for OpenClaw.
+
+## What's New in v2
+
+- **File-based storage** — Memories stored as readable markdown files
+- **No external APIs** — No OpenAI dependency, everything runs locally
+- **QMD search (optional)** — BM25 + vector + reranking via local GGUF models
+- **Auto-migration** — Seamlessly upgrades from v1 SQLite/LanceDB storage
 
 ## Why Memory-as-Tools?
 
@@ -25,8 +29,7 @@ Traditional memory systems auto-capture everything, flooding context with irrele
 - **Confidence Scoring**: Track how certain you are (1.0 = explicit, 0.5 = inferred)
 - **Importance Scoring**: Prioritize critical instructions over nice-to-know facts
 - **Decay/Expiration**: Temporal memories automatically become stale
-- **Semantic Search**: Vector-based similarity via LanceDB
-- **Hybrid Storage**: SQLite (debuggable) + LanceDB (fast vectors)
+- **Human-readable storage**: Markdown files with YAML frontmatter
 - **Conflict Resolution**: New info auto-supersedes old (no contradictions)
 
 ## Installation
@@ -54,23 +57,63 @@ openclaw plugins enable memory-tools
 
 ### Step 4: Restart the gateway
 
-**Standard (systemd):**
 ```bash
 openclaw gateway restart
 ```
 
-**Docker (no systemd):**
-```bash
-# Kill existing gateway
-pkill -f openclaw-gateway
+### Optional: Install QMD for better search
 
-# Start in background
-nohup openclaw gateway --port 18789 --verbose > /tmp/openclaw-gateway.log 2>&1 &
+```bash
+npm install -g @tobilu/qmd
 ```
 
-### Requirements
+Without QMD, basic filtering works. With QMD, you get semantic search (BM25 + vector + reranking).
 
-- `OPENAI_API_KEY` environment variable (for embeddings)
+### Node Compatibility (QMD)
+
+- QMD may not be compatible with the newest Node ABI immediately.
+- If QMD fails (for example `NODE_MODULE_VERSION` mismatch), memory-tools falls back to basic mode.
+- To force basic mode: `MEMORY_TOOLS_DISABLE_QMD=true`.
+- For best QMD stability, use a Node LTS version supported by your installed QMD build.
+
+## Security Model
+
+- No API keys or external credentials are required.
+- Data is stored locally in `~/.openclaw/memories` (or configured `memoriesPath`).
+- The plugin can prepend standing-instruction context at `before_agent_start` when `autoInjectInstructions=true`.
+- The plugin can auto-migrate legacy v1 data from `~/.openclaw/memory/tools/memory.db` when `autoMigrateLegacy=true`.
+- Defaults are conservative: both `autoInjectInstructions` and `autoMigrateLegacy` are `false`.
+
+## Storage Format
+
+Memories are stored as markdown files in `~/.openclaw/memories/`:
+
+```
+~/.openclaw/memories/
+├── facts/
+│   └── abc123-def4-5678-90ab-cdef12345678.md
+├── preferences/
+│   └── def456-7890-abcd-ef12-345678901234.md
+├── instructions/
+│   └── ghi789-0abc-def1-2345-678901234567.md
+└── .deleted/
+    └── old-memory.md
+```
+
+Each memory file:
+
+```markdown
+---
+id: abc123-def4-5678-90ab-cdef12345678
+category: preference
+confidence: 0.9
+importance: 0.7
+created_at: 2024-01-15T10:30:00Z
+tags: [ui, settings]
+---
+
+User prefers dark mode in all applications.
+```
 
 ## Memory Categories
 
@@ -141,27 +184,54 @@ memory_list({
 })
 ```
 
+## CLI Commands
+
+```bash
+# Show memory statistics
+openclaw memory-tools stats
+
+# List memories
+openclaw memory-tools list
+openclaw memory-tools list --category fact
+
+# Search memories (requires QMD)
+openclaw memory-tools search "dark mode"
+
+# Export all memories as JSON
+openclaw memory-tools export
+
+# Force re-index with QMD
+openclaw memory-tools reindex
+
+# Show storage path
+openclaw memory-tools path
+```
+
 ## Debugging
 
-Inspect what your agent knows:
+Memories are plain markdown files — just read them:
+
 ```bash
-sqlite3 ~/.openclaw/memory/tools/memory.db "SELECT id, category, content FROM memories"
+cat ~/.openclaw/memories/facts/*.md
+ls ~/.openclaw/memories/
 ```
 
 Export all memories:
+
 ```bash
 openclaw memory-tools export > memories.json
 ```
 
-## Troubleshooting
+## Migration from v1
 
-**"Database connection not open" error:**
-- Hard restart the gateway: `pkill -f openclaw-gateway`
-- Check permissions: `chown -R $(whoami) ~/.openclaw/memory/tools`
+v2 automatically detects v1 databases and migrates them:
 
-**Plugin not loading:**
-- Verify build: `ls skills/memory-tools/dist/index.js`
-- Check doctor: `openclaw doctor --non-interactive`
+1. On startup, v2 checks for `~/.openclaw/memory/tools/memory.db`
+2. If found, exports all memories to markdown files
+3. Original database preserved as backup
+4. No manual action required
+
+To enable auto-migration, set `autoMigrateLegacy: true` in plugin config.
 
 ## License
 
