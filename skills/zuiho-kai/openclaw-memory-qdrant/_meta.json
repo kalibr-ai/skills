@@ -1,0 +1,11 @@
+{
+  "owner": "zuiho-kai",
+  "slug": "openclaw-memory-qdrant",
+  "displayName": "Openclaw Memory Qdrant",
+  "latest": {
+    "version": "1.0.15",
+    "publishedAt": 1771268857148,
+    "commit": null
+  },
+  "history": []
+}
