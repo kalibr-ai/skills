@@ -4,6 +4,40 @@ All notable changes to the **MoltFlow Skills** package are documented here.
 
 ---
 
+## v2.13.0 (2026-02-18)
+
+### Fixed
+- **17 production bugs** fixed across API, MCP server, frontend, and workers
+- WAHA HMAC signature verification now uses raw bytes (was re-serializing, never matched)
+- Checkout 202 response no longer corrupts auth tokens
+- A2A import crash on fresh Docker builds (missing source file)
+- Bulk send distributed lock prevents duplicate message delivery
+- MCP sanitizer boundary marker escape prevents prompt injection breakout
+- Login rate limit atomic pipeline prevents permanent user lockout
+- Admin suspend user now persists to DB (was hardcoded property)
+- ORM decrypted fields no longer risk plaintext flush to encrypted columns
+- Stripe webhook construct_event wrapped in asyncio.to_thread
+- Timezone-aware datetime mismatches on timezone-naive columns
+
+### Changed
+- API version bumped to v2.0.0
+- MCP server version bumped to v2.0.0
+- OpenAI Actions version bumped to v2.0.0
+
+---
+
+## v2.12.3 (2026-02-17)
+
+### Added
+- **Business use case scenarios** across all sub-skills — real-world examples for healthcare, real estate, e-commerce, restaurants, agencies, and more
+- **12 vertical-specific prompts** in main SKILL.md "Just Ask Claude" section replacing generic examples
+- **GDPR + Analytics prompts** added to main skill showcase
+
+### Fixed
+- Replaced hardcoded scheduled message date with future date
+
+---
+
 ## v2.12.0 (2026-02-17)
 
 ### Changed

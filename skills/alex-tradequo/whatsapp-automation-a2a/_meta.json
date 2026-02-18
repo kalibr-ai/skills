@@ -3,11 +3,16 @@
   "slug": "whatsapp-automation-a2a",
   "displayName": "WhatsApp Business Automation — Turn Groups into Leads, AI-Powered Replies, Campaign Analytics & MCP",
   "latest": {
-    "version": "2.12.2",
-    "publishedAt": 1771318550421,
-    "commit": "https://github.com/openclaw/skills/commit/0c99ba508f3fb68d175d5f2f68a19f2ad9af3b54"
+    "version": "2.13.0",
+    "publishedAt": 1771419330676,
+    "commit": null
   },
   "history": [
+    {
+      "version": "2.12.2",
+      "publishedAt": 1771318550421,
+      "commit": "https://github.com/openclaw/skills/commit/0c99ba508f3fb68d175d5f2f68a19f2ad9af3b54"
+    },
     {
       "version": "2.12.1",
       "publishedAt": 1771318117874,
