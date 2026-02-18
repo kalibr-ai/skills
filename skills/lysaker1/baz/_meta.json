@@ -1,0 +1,11 @@
+{
+  "owner": "lysaker1",
+  "slug": "baz",
+  "displayName": "Bazaar Video Generation",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1771428313389,
+    "commit": null
+  },
+  "history": []
+}
