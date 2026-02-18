@@ -7,14 +7,17 @@ import { ensureSecretsDir, profilePaths, writeJson, getArg, mustGetArg } from '.
  * Device code auth for delegated Graph calendar scopes.
  *
  * Examples:
- *  node skills/m365-calendar/scripts/auth-devicecode.mjs --profile tom-business --tenant organizations --email radman@e-ola.com
- *  node skills/m365-calendar/scripts/auth-devicecode.mjs --profile tom-home --tenant consumers --email thomas.radman@hotmail.com
+ *  node skills/m365-calendar/scripts/auth-devicecode.mjs --profile business --tenant organizations --email you@company.com
+ *  node skills/m365-calendar/scripts/auth-devicecode.mjs --profile home --tenant consumers --email you@outlook.com
+ *
+ * Optional:
+ *  --clientId <appId>  (use an app registration that allows personal Microsoft accounts for consumers)
  */
 
 const profile = mustGetArg('profile');
 const tenant = getArg('tenant', 'organizations'); // organizations|consumers|common|<tenantId>
 const email = getArg('email', undefined);
-const clientId = getArg('clientId', '22072cd2-7ac6-45a5-a5ac-a4e474cadbe2'); // default: OpenClaw Calendar app
+const clientId = mustGetArg('clientId');
 
 // Minimum scopes for our use-cases
 const scopes = [
@@ -54,15 +57,10 @@ const pca = new PublicClientApplication({
 const result = await pca.acquireTokenByDeviceCode({
   scopes,
   deviceCodeCallback: (resp) => {
-    // Important: keep output human-copyable across MSAL versions.
-    if (resp.message) {
-      console.log(resp.message);
-      return;
-    }
-    const uri = resp.verificationUri || resp.verificationUriComplete || resp.verification_uri;
+    // For consumers, we saw MSAL returning undefined fields; build our own message.
+    const uri = resp.verificationUri || resp.verification_uri || 'https://microsoft.com/devicelogin';
     const code = resp.userCode || resp.user_code;
-    console.log(`To sign in, use a web browser to open ${uri} and enter the code ${code}`);
-    if (resp.verificationUriComplete) console.log(`Direct link: ${resp.verificationUriComplete}`);
+    console.log(`Open ${uri} and enter code: ${code}`);
   },
 });
 

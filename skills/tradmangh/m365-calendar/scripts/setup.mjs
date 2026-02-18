@@ -14,11 +14,18 @@ const tenant = getArg('tenant', 'organizations');
 const email = getArg('email', undefined);
 const tz = getArg('tz', 'Europe/Vienna');
 
+const clientId = getArg('clientId', undefined);
+
 const authArgs = [
   'skills/m365-calendar/scripts/auth-devicecode.mjs',
   '--profile', profile,
   '--tenant', tenant,
+  '--clientId', clientId || '',
 ];
+if (!clientId) {
+  console.error('Missing --clientId (required for deterministic setup; use your App registration Application (client) ID).');
+  process.exit(2);
+}
 if (email) authArgs.push('--email', email);
 
 const r = spawnSync('node', authArgs, { stdio: 'inherit' });
