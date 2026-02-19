@@ -1,12 +1,6 @@
 ---
 name: press-release-writing
-description: |
-  Press release writing in AP style with inverted pyramid structure.
-  Covers formatting, datelines, quotes, boilerplates, and fact-checking.
-  Use for: product launches, funding announcements, partnerships, company news, events.
-  Triggers: press release, pr writing, media release, news release, announcement,
-  product launch announcement, funding announcement, company news, media advisory,
-  ap style, press statement, news wire
+description: "Press release writing in AP style with inverted pyramid structure. Covers formatting, datelines, quotes, boilerplates, and fact-checking. Use for: product launches, funding announcements, partnerships, company news, events. Triggers: press release, pr writing, media release, news release, announcement, product launch announcement, funding announcement, company news, media advisory, ap style, press statement, news wire"
 allowed-tools: Bash(infsh *)
 ---
 
@@ -24,6 +18,8 @@ infsh app run tavily/search-assistant --input '{
   "query": "SaaS funding rounds Q1 2024 average series A size"
 }'
 ```
+
+> **Install note:** The [install script](https://cli.inference.sh) only detects your OS/architecture, downloads the matching binary from `dist.inference.sh`, and verifies its SHA-256 checksum. No elevated permissions or background processes. [Manual install & verification](https://dist.inference.sh/cli/checksums.txt) available.
 
 ## AP Style Format
 
@@ -284,8 +280,8 @@ Over 800 words and editors won't read it. Under 400 and it lacks substance.
 ## Related Skills
 
 ```bash
-npx skills add inferencesh/skills@web-search
-npx skills add inferencesh/skills@prompt-engineering
+npx skills add inference-sh/skills@web-search
+npx skills add inference-sh/skills@prompt-engineering
 ```
 
 Browse all apps: `infsh app list`
