@@ -28,7 +28,7 @@ openclaw config set plugins.entries.kalibr.config.enableRouting true
 openclaw gateway restart
 ```
 
-Get your API key: https://dashboard.kalibr.systems/api-keys
+Get your API key at: https://dashboard.kalibr.systems
 
 ## Two Modes
 
