@@ -44,8 +44,7 @@ Get your API key at: https://dashboard.kalibr.systems
 
 ## Reliability
 
-Kalibr routing: 88–100% success rate during provider incidents
-Hardcoded execution path: 16–36%
+Agents running in production with Kalibr see near 100% success rates even during provider incidents and degradations.
 
 ## Resources
 
